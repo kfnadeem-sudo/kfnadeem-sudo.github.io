@@ -1,0 +1,72 @@
+{
+  "press": {
+    "title": "The build tool",
+    "body": "The press stands for tools/newgame.sh, the script that turns the template into a finished game. Run with a meme's id, it syncs the shared code into an empty Roblox place, builds the mascot, the lobby and all 50 stages, then compile-checks every script. A play test with screenshots follows before Kaif publishes it as a new game. Claude drives Roblox Studio for it through the Studio MCP connector and a small Node bridge, and a fix to the template reaches each game with newgame.sh --update.",
+    "tech": [
+      "Bash",
+      "Node",
+      "Roblox Studio MCP",
+      "Luau",
+      "Stage, lobby and mascot builders"
+    ]
+  },
+  "die": {
+    "title": "The meme die",
+    "body": "Each game has one file of its own, games/<id>/meme.lua: the mascot, an optional picture, a sound Kaif records himself, the colour palette, five zone names, the sign jokes and the death line. The template puts the meme across the whole course: a giant mascot in the lobby, one on each checkpoint sign, billboards on the stages and a boss at Stage 50, with the sound on checkpoints and a pitched-down version on death. The first meme is an original one: a slice of toast that pops out of the toaster screaming AAAAA.",
+    "tech": [
+      "meme.lua",
+      "Original mascots only",
+      "Self-recorded sounds",
+      "IP check"
+    ]
+  },
+  "seed": {
+    "title": "The seed dial",
+    "body": "Every game gets its own seed, and the seed shuffles segment order, platform positions and props, so no two meme games play the same 50 stages. That matters because Roblox hides near-copy games. Screaming Toast Obby runs on seed 7101, and the next game gets a new random one when its meme.lua is written.",
+    "tech": [
+      "Seeded layout",
+      "Stage recipes as data",
+      "One layout per game"
+    ]
+  },
+  "course": {
+    "title": "50 stages, 5 zones",
+    "body": "The course is 50 stages in five zones of ten, with a zone gate and a coin bonus between zones and zone names taken from the meme. Each stage chains three to five obstacles from a kit of ten kinds, such as jumps, kill bricks, movers, spinners, conveyors, vanishing tiles, bounce pads, wind and rising lava. Difficulty climbs slowly so most kids aged 7 to 13 can finish. Moving obstacles run on each player's own screen from the server clock, and the server decides which stage you have really reached.",
+    "tech": [
+      "Luau",
+      "Obstacle kit (10 kinds)",
+      "Client-side movers",
+      "Server-checked checkpoints"
+    ]
+  },
+  "coins": {
+    "title": "Coins and cosmetics",
+    "body": "A new stage pays 10 coins times its zone number, each zone gate pays a bonus and Stage 50 pays 250, so one full run earns 3,250 coins, with a bonus for friends in the server. Coins buy trails and pets in a shop with fixed prices and no random boxes, and a free Stage Select pad sends you back to any stage you have reached. Skips, a revive and passes are coded, but they stay switched off until the products exist on Roblox.",
+    "tech": [
+      "Coin economy",
+      "7 trails + 6 pets",
+      "DataStore saves with session locking",
+      "No paid randomness"
+    ]
+  },
+  "controls": {
+    "title": "Pad and phone",
+    "body": "The template is built to work with a PS5 controller and on small phones as well as on PC. Every menu opens with a button already selected so the stick can move between them, B or Circle always goes back, and the shop and skip menus have their own pad buttons. On phones the buttons are at least 44 pixels, text scales, and nothing important sits under Roblox's own menu in the top-left corner.",
+    "tech": [
+      "Gamepad navigation",
+      "Small-phone layout",
+      "Console enabled",
+      "Toybox Pop UI kit"
+    ]
+  },
+  "template": {
+    "title": "One template, many games",
+    "body": "Every meme becomes its own Roblox game, named \"<Meme> Obby\" in the Brainrot Meme Obby series, and all of them share one template. Typing /new-meme-game starts the routine: an IP check, a pitch for names and jokes, Kaif's sound, then the build and publish. Screaming Toast Obby is the first game and is public on Roblox. This was Kaif's second Roblox game, after Yab Yab Yard, and he built it as a beginner with Claude writing the Luau.",
+    "tech": [
+      "Roblox",
+      "/new-meme-game skill",
+      "Built with Claude",
+      "Screaming Toast Obby"
+    ]
+  }
+}

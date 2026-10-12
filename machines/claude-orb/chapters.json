@@ -1,0 +1,71 @@
+{
+  "ptt": {
+    "title": "Push to talk",
+    "body": "Hold AltGr anywhere in Windows and the orb records; let go and the message is on its way. It uses a low-level keyboard hook because Electron's own shortcuts can't see a key being released. A quick tap or Esc cancels, and AltGr pressed with another key counts as typing, not talking. When your words point at the screen, like \"look at this\", a screenshot of the active screen goes with the message, and the orb keeps itself out of its own screenshots.",
+    "tech": [
+      "Electron",
+      "uiohook-napi",
+      "Hold-to-talk on AltGr",
+      "Smart screenshots"
+    ]
+  },
+  "whisper": {
+    "title": "Whisper on the PC",
+    "body": "Speech becomes text on the PC itself with faster-whisper, with no cloud speech service. The small base.en model types your words live while you are still holding the key, and the larger small.en model writes the final transcript. The bigger model only loads when there is memory to spare and unloads when idle. It runs in its own Python worker at raised priority, so a busy CPU doesn't stall a message.",
+    "tech": [
+      "Python",
+      "faster-whisper",
+      "base.en + small.en",
+      "Runs offline"
+    ]
+  },
+  "patch": {
+    "title": "Patched into the open chat",
+    "body": "C.L.A.U.D.E has no chat window of its own. Your words land in whichever Claude Desktop chat is open: a worker finds the chat's message box with Windows UI Automation, pastes, checks the paste went in, presses send and hands focus back to where you were. You can lock it to one chat, and short voice commands like stop, switch chat, new chat or read it all are handled on the PC without going to Claude.",
+    "tech": [
+      "Windows UI Automation",
+      "Python (ctypes)",
+      "Claude Desktop",
+      "Local voice commands"
+    ]
+  },
+  "speaker": {
+    "title": "The reply, spoken",
+    "body": "A Claude Code hook marks voice messages and asks Claude to end its reply with one tagged summary line: \"🔊 [done | needs-you | blocked] summary\". When the reply finishes, a Stop hook passes it to the orb, which reads that line aloud in an en-GB neural voice. Typed messages stay silent, and \"read it all\" speaks the whole reply. Spoken replies work in Claude Desktop's Code tab, where hooks run.",
+    "tech": [
+      "Claude Code hooks",
+      "Node",
+      "edge-tts",
+      "UserPromptSubmit + Stop"
+    ]
+  },
+  "orb": {
+    "title": "The orb",
+    "body": "The always-on-top orb is the whole interface: 16 WebGL designs that switch with what you're doing, such as a small dot during calls or fullscreen video and a terminal while coding. Its colour gives the state at a glance: ready, listening, working, needs you, done, blocked, or Claude closed. Its rings show the chat's context use, the steps of the current task, weekly usage, and small moons for other busy chats.",
+    "tech": [
+      "WebGL2",
+      "Canvas",
+      "Claude Code hooks",
+      "16 designs"
+    ]
+  },
+  "settings": {
+    "title": "Settings",
+    "body": "Everything lives in the tray menu: mute, screenshots (only when you mention the screen, always or never), sound effects (off, subtle or normal) and start with Windows, which is opt-in only. A design picker chooses a favourite, or leaves an automatic mode on that picks a design for the situation and holds it at least 45 seconds so it doesn't flicker. The sci-fi sound set is synthesised in the app.",
+    "tech": [
+      "Electron tray",
+      "Web Audio",
+      "JSON settings"
+    ]
+  },
+  "set": {
+    "title": "Under the case",
+    "body": "Version 2 is an Electron app with two Python workers: one for voice (speech to text and text to speech) and one for the window and UI Automation work, so a slow lookup never holds up a transcript. It ships as a per-user Windows installer. Lazy model loading and loops that sleep when nothing is happening cut its idle memory from about 2 GB to about 300 MB. It replaced version 1, which was its own chat app in a browser window.",
+    "tech": [
+      "Electron 44",
+      "Python workers",
+      "electron-builder (NSIS)",
+      "Windows"
+    ]
+  }
+}

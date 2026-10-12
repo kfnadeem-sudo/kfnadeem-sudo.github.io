@@ -1,0 +1,72 @@
+{
+  "weighin": {
+    "title": "The weigh-in gate",
+    "body": "The app stays locked each morning until today's weight is in, then asks for a progress photo and shows the morning brief. The weight can come straight from a Eufy smart scale over Bluetooth: the app reads the scale's broadcasts and only accepts a reading once the scale marks it as settled, or it can be typed. The wake alarm keeps ringing until you weigh in or scan a barcode, so it can't be snoozed from bed.",
+    "tech": [
+      "Bluetooth LE (GATT)",
+      "Eufy smart scale",
+      "CameraX",
+      "Morning lock"
+    ]
+  },
+  "today": {
+    "title": "The day's card",
+    "body": "Today shows what's on now, a countdown to what's next and three buttons: Done, Skip and Snooze. A skip needs a reason, missed tasks turn red, and the wind-down makes you close out anything still open. Tasks, times, one-offs, checklists and targets are all edited inside the app, so a routine change never needs a rebuild.",
+    "tech": [
+      "Kotlin",
+      "Jetpack Compose",
+      "Room database",
+      "Now / Next timeline"
+    ]
+  },
+  "streak": {
+    "title": "The streak",
+    "body": "A day counts when at least 80% of the plan is done and every non-negotiable is ticked; the threshold is a setting. Each counted day rolls the streak on, and a failed day resets it unless a streak save covers it: one save is earned every 14 counted days, and you can hold two. Past days are frozen into history after two days, so editing the routine can't rewrite the streak.",
+    "tech": [
+      "Daily score",
+      "Streak saves",
+      "Frozen day history"
+    ]
+  },
+  "levers": {
+    "title": "Non-negotiables",
+    "body": "Any task can be marked non-negotiable, and by default waking up, the prepped lunch and the wind-down are. Missing one stops the day counting whatever the percentage. They carry a padlock in the timeline, and their reminders nag twice as often.",
+    "tech": [
+      "Locked tasks",
+      "Day lamp: 80% + all locks",
+      "Double nags"
+    ]
+  },
+  "food": {
+    "title": "Food and meal prep",
+    "body": "Calories and protein are tracked against targets you set yourself, from a barcode scan, a food search or a one-tap usual; only the barcode number or the search words ever leave the phone. Prepped lunch boxes are counted as stock. A library of 50 high-protein batch recipes fills four boxes each: pick two a week and the app builds one combined Aldi list, then a Cook both mode runs the two recipes with a labelled timer for every wait.",
+    "tech": [
+      "ML Kit barcode",
+      "Open Food Facts",
+      "50 batch recipes",
+      "Shopping list merge",
+      "Cook timers"
+    ]
+  },
+  "coach": {
+    "title": "The coach",
+    "body": "Reminders use exact alarms: a full-screen wake alarm, nag repeats when a task is ignored, and a pinned Now / Next notification with a Done button that survives a restart. The default tone is firm, blunt about behaviour, data and excuses but never about the person or their body; after a missed day the morning brief says never miss twice. A gentler tone is one switch away.",
+    "tech": [
+      "AlarmManager",
+      "Full-screen alarm",
+      "Notifications",
+      "Firm / gentle tone"
+    ]
+  },
+  "phone": {
+    "title": "Built for the Fold",
+    "body": "A native Android app for a Galaxy Z Fold, specified by Kaif and built with Claude, used every day. Folded, it's one column with a bottom tab bar; unfolded, the tabs become a side rail with today's timeline beside the open screen, and folding keeps your place. Everything stays on the phone with no account, ads or analytics, plus JSON backup, home-screen widgets and screenshot tests that render every screen.",
+    "tech": [
+      "Android",
+      "androidx.window",
+      "Glance widgets",
+      "Roborazzi tests",
+      "On-device data"
+    ]
+  }
+}
