@@ -1,0 +1,37 @@
+{
+  "card": {
+    "title": "Snap any object",
+    "body": "It starts with a photo of anything: a mug, a trainer, a banana. In the machine the photo is a card fed into the coin slot. Rollers draw it under a scanner head, and the picture goes up to the model.",
+    "tech": ["Phone camera", "Image upload", "Gemma 4 vision"]
+  },
+  "gemma": {
+    "title": "Gemma 4 invents the character",
+    "body": "Gemma 4 looks at the photo, decides what the object is and gives it a googly-eyed personality. It writes the bars and the comebacks, and it judges how witty your reply is.",
+    "tech": ["Gemma 4", "Multimodal prompting", "Structured output"]
+  },
+  "voice": {
+    "title": "A voice for every object",
+    "body": "Each object gets a voice designed for it, and ElevenLabs v3 raps its roast over the beat. Scribe transcribes your bars as you rap them, and the crowd reactions are generated sound effects.",
+    "tech": ["ElevenLabs Voice Design", "Eleven v3", "Scribe speech-to-text", "Sound effects"]
+  },
+  "screen": {
+    "title": "The character on stage",
+    "body": "The character comes alive on screen. Its mouth moves to the words, its pupils jiggle on the beat and its roast types out in a speech bubble.",
+    "tech": ["Web front end", "Lip-sync animation", "92 bpm beat clock"]
+  },
+  "mic": {
+    "title": "Your phone becomes the mic",
+    "body": "Then it is your turn. You hold your phone like a mic and freestyle back. The machine counts the words it hears and fires a comeback.",
+    "tech": ["Web Audio", "Microphone capture", "Live transcription"]
+  },
+  "crowd": {
+    "title": "The audience decides",
+    "body": "The audience scans a QR code and votes on their phones: cheer, laugh or boo. Votes and wit are combined into a score out of 100, and 60 or more beats the object.",
+    "tech": ["QR join", "Realtime voting", "Scoring out of 100"]
+  },
+  "marquee": {
+    "title": "Best Use of Gemma 4",
+    "body": "dissPICable won Best Use of Gemma 4 at Hacktoberfest Hack Day Manchester 2026. It was built in a day with Debanjan Ray and Hussain Afham.",
+    "tech": ["Hackathon build", "Team of three"]
+  }
+}

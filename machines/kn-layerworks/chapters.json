@@ -1,0 +1,75 @@
+{
+  "order": {
+    "title": "The order ticket",
+    "body": "A customer types a name into the Etsy personalisation box. Kaif pastes the order into an inbox folder and one Python tool, tools/order.py, checks every name against the product's limits and drafts the name-check message to send. A second run builds, batches and slices the print plates, then writes a packing sheet and the dispatch messages. Anything it can't read is held back rather than guessed, and it never touches Etsy on its own.",
+    "tech": [
+      "Python",
+      "trimesh",
+      "3MF plate builder",
+      "Bambu Studio CLI",
+      "Etsy order parsing"
+    ]
+  },
+  "design": {
+    "title": "Parametric design",
+    "body": "Every product is a model written in code, so the customer's name changes the geometry rather than sitting on top of it. The name keyring and coasters are pure OpenSCAD, and the spinning top, flexi keyring, maze box and lantern bodies come from scripted Fusion builds. The lettering on all of them comes from one shared OpenSCAD text module built on the BOSL2 library, and a browser customiser built on openscad-wasm previews names before anything prints.",
+    "tech": [
+      "OpenSCAD",
+      "BOSL2",
+      "Fusion (scripted)",
+      "openscad-wasm",
+      "Blender renders"
+    ]
+  },
+  "ams": {
+    "title": "Four-colour AMS",
+    "body": "A 4-slot AMS feeds the printer from four spools: charcoal, ivory, silk gold and red, plus grey and blue for the original keyring and coasters. Colour changes happen in height bands, with at most two swaps per print, so a multi-colour part stays quick. Orders of the same product share one plate and one set of swaps: four flexi keyrings sliced at 52 minutes, against 23 minutes for one on its own.",
+    "tech": [
+      "Bambu AMS (4 slots)",
+      "Height-band colour",
+      "Batched plates"
+    ]
+  },
+  "toolhead": {
+    "title": "Printing",
+    "body": "Everything prints in PLA through a 0.4 mm stainless nozzle at 0.2 mm layers and 10% infill. Parts are designed to print flat with no supports, so there is no clean-up and no wasted plastic. A slice that comes out more than 1.5 times the expected time is flagged on the packing sheet before it reaches the printer.",
+    "tech": [
+      "PLA",
+      "0.2 mm layers",
+      "No supports",
+      "Bambu Studio"
+    ]
+  },
+  "plate": {
+    "title": "The product",
+    "body": "This plate is printing a personalised name keyring reading AMELIA: raised letters printed into a solid base, up to 12 letters, with a metal split ring added at packing. The shop also sells flexi keyrings, name spinning tops, a reveal-wheel card, a two-names-in-one lantern, a maze gift box and manhole-cover coasters. Nothing is printed until an order arrives.",
+    "tech": [
+      "Name keyring",
+      "Flexi keyring",
+      "Spinning top",
+      "Reveal wheel",
+      "Lantern",
+      "Maze box",
+      "Coasters"
+    ]
+  },
+  "printer": {
+    "title": "The printer",
+    "body": "A Bambu Lab P1S: an enclosed CoreXY printer with a 256 mm bed, kept to about 200 mm for multi-colour plates to leave room for the purge tower. Plate rules decide what shares a bed: same product and colours print by layer, tall parts like the maze tube print alone, and coasters fill a plate of their own.",
+    "tech": [
+      "Bambu Lab P1S",
+      "CoreXY",
+      "Enclosed chamber"
+    ]
+  },
+  "shop": {
+    "title": "The Etsy shop",
+    "body": "KN Layerworks is Kaif's Etsy shop of personalised 3D-printed gifts, with 8 live listings from £4.49. Every item is made to order in the UK, posted free by Royal Mail 2nd Class, and dispatched within 3 to 5 working days. Listings, renders, pricing on real slice cost and a zero-budget marketing plan were all built with Claude. Shop: etsy.com/shop/KNLayerworks",
+    "tech": [
+      "Etsy",
+      "Made to order",
+      "Free UK postage",
+      "Built with Claude"
+    ]
+  }
+}

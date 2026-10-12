@@ -1,0 +1,37 @@
+{
+  "pads": {
+    "title": "Phone pads",
+    "body": "You play on your laptop keyboard or on your phone. A mid-day pivot turned the phone into a pure pad controller: the Android app AI Beat Pads shows full-screen melody and drum pads with multi-touch. It joins the studio by scanning a QR code over Wi-Fi, or over a USB cable using adb reverse, and every tap goes live into the recording.",
+    "tech": ["Kotlin Android app", "WebSocket (port 7777)", "QR join", "adb reverse"]
+  },
+  "punch": {
+    "title": "Your taps, locked to a scale",
+    "body": "You don't need to know any music. Pick a mood (Chill, Dance, Hype or Dreamy) and it sets the tempo and a scale, so every key you hit sounds right. Press record, tap a rhythm, and your notes land on a piano roll snapped to sixteenth notes.",
+    "tech": ["Electron", "Scale-locked piano roll", "Vanilla JS modules"]
+  },
+  "gemma": {
+    "title": "Gemma 4, the AI producer",
+    "body": "Press \"Make it a banger\" and your notes, plus a screenshot of the piano roll, go to Gemma 4. It runs locally through Ollama first, falls back to the Gemini API, and has a built-in demo track if both are down. Gemma writes one bar per instrument and a four-bar chord progression, and the code repeats and transposes it, which cut a track from about 48 seconds to under 20. It also names the song, picks a colour palette, suggests vocal lines and gives producer notes you can apply in one tap.",
+    "tech": ["Gemma 4", "Ollama", "Gemini API", "Structured JSON output"]
+  },
+  "roll": {
+    "title": "The track is notes, not audio",
+    "body": "Gemma's backing tracks come back as notes, not sound files: pitch, start, length and velocity, snapped into your scale. So every part stays editable, with drums and bass always included plus one to three of pad, lead or pluck. One shared data contract let a team of five, each working with an AI agent in their own folder, build the modules in parallel.",
+    "tech": ["Shared data contract", "Notes snapped to scale", "Git merge points"]
+  },
+  "tone": {
+    "title": "Playback and voice",
+    "body": "Tone.js plays your riff and the AI parts in sync, through a mixer with level meters and sample-pack drums. ElevenLabs turns Gemma's vocal ideas into short clips you can drop onto the timeline. To save credit, clips are made only on a click, cached by lyric and style, and capped per session, and there's a free mock mode for building.",
+    "tech": ["Tone.js", "ElevenLabs", "Clip cache + caps", "Beat-reactive visuals"]
+  },
+  "memory": {
+    "title": "Openloft memory",
+    "body": "The producer remembers your taste between sessions. The app logs what you do in plain English (the vibe you pick, the genre, what you ask for, and which producer notes you apply or skip) to an NMAFC memory server, built for the hackathon's Openloft challenge. Every new track recalls up to eight relevant facts into Gemma's prompt. Memory runs on Gemini Flash-Lite so Gemma stays free, and the app keeps working if the memory is off.",
+    "tech": ["Openloft / NMAFC", "Gemini Flash-Lite", "Batched writes (one per 20 s)"]
+  },
+  "award": {
+    "title": "Two first places",
+    "body": "Built in one day at the Bradford Agentic AI Hackathon at the University of Bradford on 3 October 2026. AI Beat Studio won Best Use of OpenLoft and the Applied AI Society Bradford Award. It's open source under the MIT licence.",
+    "tech": ["1st: Best Use of OpenLoft", "1st: Applied AI Society Bradford Award", "MIT licence"]
+  }
+}

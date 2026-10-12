@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaif Nadeem: apps, games and AI tools</title>
+<meta name="description" content="Kaif Nadeem works in construction ops by day and builds apps, games and AI tools by night, with Claude. Three hackathon awards in October 2026.">
+<meta name="theme-color" content="#f5f4f0">
+<meta name="color-scheme" content="light">
+<!-- Open Graph / social preview. Swap SITE_URL for the live address once it exists (see README). -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kaif Nadeem: apps, games and AI tools">
+<meta property="og:description" content="Construction ops by day. Builder of apps, games and AI tools by night. I build with Claude.">
+<meta property="og:image" content="img/og.png">
+<meta property="og:url" content="https://kfnadeem-sudo.github.io/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<script>
+  // first visit in this tab, with motion allowed: play the intro once
+  try {
+    if (!sessionStorage.getItem("kn-intro") && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("intro");
+  } catch (e) {}
+</script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<a class="skip" href="#work">Skip to projects</a>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="#">Kaif Nadeem</a>
+    <nav aria-label="Main">
+      <ul class="nav">
+        <li><a href="#work" data-nav="work">Work</a></li>
+        <li><a href="#about" data-nav="about">About</a></li>
+        <li><a href="#contact" data-nav="contact">Contact</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap" aria-labelledby="hero-h">
+    <h1 id="hero-h">Construction ops by day. Builder of apps, games and AI tools by night.</h1>
+    <p>I build with Claude, from first sketch to shipped. Three hackathon awards in October 2026.</p>
+  </section>
+
+  <section id="work" class="work" aria-labelledby="work-h">
+    <h2 id="work-h" class="sr-only">Work</h2>
+    <div class="stage-head wrap">
+      <p class="hint" id="hint">Click the machine to take it apart.</p>
+      <div class="counter" aria-hidden="true">
+        <span class="ticks" id="ticks"></span>
+        <span><span id="count-now">01</span><span class="count-of"> / <span id="count-all">03</span></span></span>
+      </div>
+    </div>
+
+    <div class="band" id="band" aria-roledescription="carousel" aria-label="Projects">
+      <div class="track" id="track"></div>
+      <div class="callouts" id="callouts" data-mode="off">
+        <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+        <div class="labels" id="labels" role="group" aria-label="Parts"></div>
+      </div>
+      <div class="strip" id="strip" role="group" aria-label="Parts"></div>
+
+      <button class="arrow arrow-prev" type="button" id="prev" aria-controls="track">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span class="arrow-label" id="prev-label"></span>
+      </button>
+      <button class="arrow arrow-next" type="button" id="next" aria-controls="track">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="arrow-label" id="next-label"></span>
+      </button>
+
+      <aside class="chapter" id="chapter" aria-labelledby="chapter-title" hidden>
+        <div class="sheet-grip" aria-hidden="true"></div>
+        <div class="chapter-head">
+          <p class="chapter-num" id="chapter-num"></p>
+          <button class="icon-btn" type="button" id="chapter-close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+            <span class="sr-only">Close chapter</span>
+          </button>
+        </div>
+        <div class="chapter-scroll" id="chapter-scroll">
+          <h3 id="chapter-title" tabindex="-1"></h3>
+          <p class="chapter-body" id="chapter-body"></p>
+          <ul class="chips" id="chapter-tech" aria-label="Tech"></ul>
+          <figure class="chapter-shot" id="chapter-shot" hidden>
+            <img alt="" id="chapter-img" loading="lazy">
+          </figure>
+        </div>
+        <nav class="chapter-nav" aria-label="Chapters">
+          <button type="button" class="text-btn" id="chapter-prev"></button>
+          <button type="button" class="text-btn text-btn-end" id="chapter-next"></button>
+        </nav>
+      </aside>
+    </div>
+
+    <div class="info wrap" id="info"></div>
+    <p class="sr-only" id="announce" aria-live="polite"></p>
+  </section>
+
+  <section id="about" class="about wrap" aria-labelledby="about-h">
+    <figure class="photo" id="photo">
+      <img id="photo-img" alt="Kaif Nadeem" width="800" height="1000" loading="lazy">
+      <span class="photo-ph" aria-hidden="true">[PHOTO]</span>
+    </figure>
+    <div class="about-text">
+      <h2 id="about-h">I work full time in construction ops. Evenings and Saturdays, I build.</h2>
+      <div class="prose">
+        <p>By day I keep jobs, crews and schedules moving. Outside work I make things people use: Android apps, Roblox games, AI tools and a 3D-print shop that sells personalised gifts on Etsy.</p>
+        <p>I build with Claude. I bring the problem, the taste and the testing, and Claude helps me write and ship the code fast. That is how a full-time job and a steady run of shipped projects fit in the same week.</p>
+      </div>
+      <dl class="facts">
+        <div><dt>Day job</dt><dd>Construction operations, full time</dd></div>
+        <div><dt>Builds with</dt><dd>Claude, on every project</dd></div>
+        <div><dt>Recognition</dt><dd>3 hackathon awards, October 2026</dd></div>
+        <div><dt>Open to</dt><dd>Tech, AI and product roles</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="contact" class="contact wrap" aria-labelledby="contact-h">
+    <div class="contact-intro">
+      <h2 id="contact-h">Get in touch</h2>
+      <p>Email is quickest. I reply in the evenings.</p>
+    </div>
+    <ul class="contact-list">
+      <li><a class="contact-row" data-link="email"><span class="contact-k">Email</span><span class="contact-v" data-value="email"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
+      <li><a class="contact-row" data-link="linkedin"><span class="contact-k">LinkedIn</span><span class="contact-v" data-value="linkedin"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
+      <li><a class="contact-row" data-link="github"><span class="contact-k">GitHub</span><span class="contact-v" data-value="github"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
+    </ul>
+  </section>
+</main>
+
+<footer class="foot wrap">
+  <span>Kaif Nadeem, 2026</span>
+  <span>A new project every week. Built with Claude.</span>
+</footer>
+
+<noscript><p class="wrap noscript">The project carousel needs JavaScript. Email <a href="mailto:kfnadeem@gmail.com">kfnadeem@gmail.com</a> for links to the work.</p></noscript>
+</body>
+</html>
