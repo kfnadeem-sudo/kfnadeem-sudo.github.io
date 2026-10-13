@@ -57,14 +57,15 @@ export function stillLayer(project, onClick) {
 }
 
 /** Imports and mounts the live machine into layer. Resolves to its handle; rejects if it can't. */
-export async function liveMachine(layer, project, { timeout = 20000 } = {}) {
+export async function liveMachine(layer, project, { timeout = 20000, autoRotate = false } = {}) {
   const mod = await Promise.race([
     import(asset(project.machine, "machine.js")),
     new Promise((_, no) => setTimeout(() => no(new Error("timeout")), timeout)),
   ]);
   const mount = mod.mount || mod.default;
   if (typeof mount !== "function") throw new Error("no mount()");
-  const handle = mount(layer, { theme: "light", autoRotate: false }); // the flipbook does the idle turning
+  // autoRotate: the machine's own slow idle turn (the site pauses it whenever it shouldn't run)
+  const handle = mount(layer, { theme: "light", autoRotate });
   if (!handle || typeof handle.explode !== "function") throw new Error("bad handle");
   return handle;
 }

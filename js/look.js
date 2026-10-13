@@ -23,7 +23,7 @@ const SOFT = {
   g: "0.973 0.973 0.973 0.973 0.890 0.808 0.720 0.643 0.540 0.429 0.165",
   b: "1.000 1.000 1.000 1.000 0.970 0.936 0.900 0.871 0.770 0.663 0.310",
 };
-const filter = (id, t) => `  <filter id="${id}" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+const filter = (id, t) => `  <filter id="${id}" color-interpolation-filters="sRGB" x="-20%" y="-20%" width="140%" height="140%">
     <feColorMatrix in="SourceGraphic" type="matrix" values="${LUM} ${LUM} ${LUM} 0 0 0 1 0" result="lum"/>
     <feComponentTransfer in="lum" result="tone">
       <feFuncR type="table" tableValues="${t.r}"/><feFuncG type="table" tableValues="${t.g}"/><feFuncB type="table" tableValues="${t.b}"/>

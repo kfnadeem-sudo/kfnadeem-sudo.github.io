@@ -4011,7 +4011,7 @@ function mount(container, options = {}) {
   root.className = "iso rm3";
   root.dataset.theme = opts.theme === "light" ? "light" : "dark";
   if (!opts.caption) root.dataset.caption = "off";
-  root.style.cssText = "position:relative;width:100%;height:100%;overflow:hidden";
+  root.style.cssText = "position:relative;width:100%;height:100%;overflow:visible"; // visible: the 1.1 zoom puts the turntable rim past the box
   const corner = (name, text, extra = "") => `<span class="iso-plate-corner" data-corner="${name}"${extra}>${text}</span>`;
   const steps = M.STEPS.map((s) => `<li data-step="${s.n}"><span class="rm-step-n">${s.n}</span>${s.label.split(":")[0]}</li>`).join("");
   root.innerHTML = `${opts.steps ? `<ol class="rm-steps" aria-hidden="true">${steps}</ol>` : ""}${opts.controls ? '<div class="rm3-controls"><button type="button" class="rm3-btn" data-act="explode" aria-pressed="false">Open</button><button type="button" class="rm3-btn" data-act="play" aria-pressed="false">Play</button></div>' : ""}<div class="iso-stage iso-turn rm3-stage" tabindex="0" role="application" aria-roledescription="3D figure" aria-label="dissPICable, the Roast-o-Matic: an arcade cabinet on a turntable. Drag or use the left and right arrow keys to turn it. Press Enter to open it into its assemblies, then the up and down arrows to step through them. Escape closes it. Press P to play a round.">${RM3_MARKUP}<span class="rm3-sr" role="status" aria-live="polite" data-status></span></div><div class="rm3-chapter" aria-hidden="true"><b data-ch-label></b><span data-ch-text></span></div>`;
@@ -4049,7 +4049,9 @@ function mount(container, options = {}) {
   };
   const groupsOf = {};
   for (const g of $$(".iso-live [data-name]")) {
-    const id = idOfName(g.dataset.name);
+    // "cab": the cabinet shell (no chapter of its own) still hover-highlights while assembled, so the whole
+    // machine reads as clickable (a click there takes it apart)
+    const id = idOfName(g.dataset.name) ?? (/^(cab|stand|side)(\.|$)(?!platter)/.test(g.dataset.name) ? "cab" : null);
     if (id) (groupsOf[id] ??= []).push(g);
   }
 
@@ -4291,7 +4293,7 @@ function mount(container, options = {}) {
       set(cap, "data-down", down);
       if (cap) cap.style.transform = down && !still.matches ? "translateY(1.1px)" : "";
       set(el.levers[b.id], "data-on", down);
-      if (el.levers[b.id]) el.levers[b.id].setAttribute("d", down ? "M0 0L-0.9 1.9" : "M0 0L-1.4 1.6");
+      setD(el.levers[b.id], down ? "M0 0L-0.9 1.9" : "M0 0L-1.4 1.6"); // only when it changes: any write repaints the whole drawing
     }
     const tl = playing ? tallyNow(t) : st.lastTally ?? { c: 0, l: 0, b: 0 };
     [tl.c, tl.l, tl.b].forEach((n, i) => {
@@ -4315,7 +4317,9 @@ function mount(container, options = {}) {
     const step = playing ? p.step : 0;
     el.badges.forEach((b) => set(b, "data-on", Number(b.dataset.name.split(".")[1]) === step));
     el.legend.forEach((li) => set(li, "data-on", Number(li.dataset.step) === step));
-    if (!still.matches) {
+    // the fans sit inside the closed cabinet: spin them only while it is open or playing. Turning them every
+    // frame repainted the whole (filtered) drawing at 60 Hz even when nothing else moved (13 Oct)
+    if (!still.matches && (st.exploded || st.playing)) {
       fanA[0] = (fanA[0] + 3.2 * dt * 57.3) % 360;
       fanA[1] = (fanA[1] + (thinking ? 16 : playing ? 9 : 5) * dt * 57.3) % 360;
       el.fans.forEach((g, i) => g && g.setAttribute("transform", `rotate(${fanA[i].toFixed(1)})`));
@@ -4365,6 +4369,7 @@ function mount(container, options = {}) {
     const next = on ? 1 : 0;
     if (next === st.exploded) return;
     st.exploded = next;
+    if (st.hover === "cab") setHover(null);
     const list = MOVERS;
     // the side door swings open first and shuts last; the assemblies wait for it
     const lead = 0.12;
@@ -4407,12 +4412,13 @@ function mount(container, options = {}) {
     const hit = document.elementFromPoint(x, y);
     live.style.pointerEvents = "";
     const g = hit && hit.closest && hit.closest(".iso-live [data-name]");
-    return g ? idOfName(g.dataset.name) : null;
+    if (!g) return null;
+    return idOfName(g.dataset.name) ?? (!st.exploded && /^(cab|stand|side)(\.|$)(?!platter)/.test(g.dataset.name) ? "cab" : null);
   }
   const say = (text) => (status.textContent = text);
   // hover: a light highlight on one assembly, no dimming of the rest
   function setHover(id) {
-    id = id && chapters[id] ? id : null;
+    id = id && (chapters[id] || (id === "cab" && !st.exploded)) ? id : null;
     if (id === st.hover) return;
     st.hover = id;
     for (const [gid, list] of Object.entries(groupsOf)) for (const g of list) set(g, "data-hov", gid === id);

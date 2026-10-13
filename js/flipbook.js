@@ -49,8 +49,9 @@ export function flipbookLayer(project, opts = {}) {
 
   let N = 72, step = 5, urls = [], loaded = [], shown = [-1, -1];
   let angle = 0, turning = false, raf = 0, last = 0, dead = false, speed = 9;
-  let resolveReady, rejectReady;
+  let resolveReady, rejectReady, resolveDone;
   const ready = new Promise((r, j) => { resolveReady = r; rejectReady = j; });
+  const done = new Promise((r) => (resolveDone = r)); // every frame fetched and decoded (or given up)
 
   const nearestLoaded = (k, dir) => {
     for (let d = 0; d < N; d++) {
@@ -193,13 +194,15 @@ export function flipbookLayer(project, opts = {}) {
         take();
       }
       await decoding;
+      resolveDone();
       if (!started) throw new Error("first frame failed");
     })
-    .catch((err) => rejectReady(err));
+    .catch((err) => { resolveDone(); rejectReady(err); });
 
   return {
     el,
     ready,
+    done,
     get angle() { return angle; },
     setAngle(deg) { angle = mod(deg, 360); paint(); },
     turnBy(deg) { angle = mod(angle + deg, 360); paint(); },

@@ -5,8 +5,7 @@ import { flipbookLayer } from "./flipbook.js";
 import { readAngle, jumpAngle } from "./angle.js";
 import { installFilters } from "./look.js";
 
-// Idle auto-turn is off: stepping through 5-degree frames either strobes or (blended) blurs.
-// Machines rest crisp at their best angle and turn when dragged or swiped.
+// The flipbook never auto-turns: stepping through 5-degree frames strobes and blending them blurs.
 const IDLE_TURN = false;
 
 installFilters();
@@ -20,7 +19,7 @@ const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
 const canHover = matchMedia("(hover: hover) and (pointer: fine)");
 const still = () => reducedMQ.matches;
 const SPRING = "cubic-bezier(.16, 1, .3, 1)";
-const idle = (fn, t = 1500) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: t }) : setTimeout(fn, 300));
+const idleCb = (fn, t = 1500) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: t }) : setTimeout(fn, 300));
 
 const band = $("band");
 const track = $("track");
@@ -29,6 +28,18 @@ const panel = $("chapter");
 const N = PROJECTS.length;
 const INTRO = document.documentElement.classList.contains("intro");
 let introDone = !INTRO;
+
+// The slow idle turn (13 Oct, second pass) is done by the LIVE machine (about 1 rev per 40 s), so it is smooth
+// and sharp. The site drives it (turnLoop) rather than the machines' own autoRotate, so it can cap the redraw
+// rate: a redraw costs 6-20 ms of main thread depending on the machine, so the rate starts at 30 Hz and steps
+// down (20, 15, 12, 10 Hz) while the page falls under ~52 fps. The angle is time-based, so a lower rate only
+// means finer-or-coarser steps, never a slower turn. Once the centre slide settles the live machine
+// mounts behind the flipbook (same angle, so the swap is invisible) and keeps turning; the flipbook stays as the
+// instant first paint and the fallback. It pauses while the page scrolls, while the carousel moves, when the tab
+// is hidden, when the stage is off screen, and never runs under prefers-reduced-motion.
+// Desktop (mouse) always; touch devices only after probeIdleLive() finds headroom, otherwise they rest still.
+const idleTurn = { on: canHover.matches && !/[?&]noidle\b/.test(location.search), probed: false, timer: 0, skip: new Set() }; // ?noidle: off (for comparisons)
+let scrolling = false;
 
 // Every machine idles as a flipbook: pre-rendered frames in the final look, so turning costs next to
 // nothing. The live 3D machine mounts only when someone interacts with it (hover, drag, click, Explode,
@@ -76,7 +87,7 @@ const slides = PROJECTS.map((p, i) => {
   host.addEventListener("pointerleave", () => { live.hover = false; });
   host.addEventListener("pointermove", (e) => { if (e.buttons) noteActivity(); }, { passive: true });
   host.addEventListener("pointerdown", () => { live.down = true; noteActivity(); });
-  addEventListener("pointerup", () => { live.down = false; }, { passive: true });
+  addEventListener("pointerup", () => { live.down = false; syncIdleTurn(); }, { passive: true });
   host.addEventListener("keydown", () => noteActivity());
   track.appendChild(slide);
   return slide;
@@ -168,7 +179,7 @@ function goLive(i) {
   layer.dataset.out = "";
   hostOf(i).appendChild(layer);
   slides[i].setAttribute("data-loading", "");
-  s.loading = liveMachine(layer, p)
+  s.loading = liveMachine(layer, p) // mounted still: the site drives the idle turn (turnLoop)
     .then((h) => {
       s.loading = null;
       slides[i].removeAttribute("data-loading");
@@ -207,7 +218,8 @@ function reveal(i) {
   if (!s.shown) {
     if (s.flip) jumpAngle(h, s.flip.angle);
     s.shown = true;
-    h.setPaused(state.moving);
+    s.live.paused = livePaused(i);
+    h.setPaused(s.live.paused);
     el.removeAttribute("data-out");
     s.flip?.setTurning(false);
     clearTimeout(s.hideFlip);
@@ -222,6 +234,7 @@ function reveal(i) {
   if (state.exploded) explodeLive(i, h);
   syncFocus();
   centreChanged();
+  syncIdleTurn();
 }
 
 /** Back to the flipbook at the live machine's angle; the live one fades out and pauses. */
@@ -241,7 +254,7 @@ function handBack(i, { destroy = false } = {}) {
     h.destroy?.();
     el.remove();
     s.live = null;
-  } else setTimeout(() => { if (!s.shown) h.setPaused(true); }, 500);
+  } else setTimeout(() => { if (!s.shown && s.live?.h === h) { h.setPaused(true); s.live.paused = true; } }, 500);
   syncFocus();
   syncTurning();
 }
@@ -250,12 +263,14 @@ function handBack(i, { destroy = false } = {}) {
 const live = { last: 0, hover: false, down: false, flipDrag: false, playUntil: 0, timer: 0 };
 function noteActivity() {
   live.last = performance.now();
+  queueMicrotask(syncIdleTurn);
   wakeCallouts();
   const s = slots.get(PROJECTS[state.index].id);
   clearTimeout(live.timer);
   live.timer = setTimeout(liveIdleCheck, 700);
 }
 function liveIdleCheck() {
+  syncIdleTurn(); // e.g. a demo round just finished
   const i = state.index;
   const s = slots.get(PROJECTS[i].id);
   if (!s?.live || !s.shown) return;
@@ -263,7 +278,7 @@ function liveIdleCheck() {
   const playing = !!s.live.h.state?.playing || performance.now() < live.playUntil;
   const busy = state.exploded || state.chapter || state.moving || live.hover || live.down || playing
     || !!hostOf(i).querySelector(":focus-visible"); // a keyboard user working the machine keeps it live
-  if (!busy && quiet > 3500 && s.flip) return handBack(i);
+  if (!busy && quiet > 3500 && s.flip && !wantIdleLive(i)) return handBack(i);
   live.timer = setTimeout(liveIdleCheck, busy ? 900 : 400);
 }
 
@@ -299,12 +314,134 @@ function dropSlot(i) {
   slots.delete(id);
 }
 
+/** A live machine runs only while it is the one on screen and nothing else needs the frame budget. */
+function livePaused(i) {
+  const s = slots.get(PROJECTS[i].id);
+  return state.moving || i !== state.index || !s?.shown || scrolling || !bandVisible || document.hidden;
+}
 function applyPause() {
   PROJECTS.forEach((p, i) => {
     const s = slots.get(p.id);
-    if (s?.live) s.live.h.setPaused(state.moving || i !== state.index || !s.shown);
+    if (!s?.live) return;
+    const paused = livePaused(i);
+    if (s.live.paused !== paused) { s.live.paused = paused; s.live.h.setPaused(paused); }
   });
   syncTurning();
+  syncIdleTurn();
+}
+
+// ---------------------------------------------------------------- idle turn on the live machine
+const wantIdleLive = (i) => idleTurn.on && !idleTurn.skip.has(PROJECTS[i].id) && i === state.index && introDone && !still() && !state.moving
+  && bandVisible && !document.hidden;
+function scheduleIdleLive(delay = 350) {
+  clearTimeout(idleTurn.timer);
+  if (!wantIdleLive(state.index)) return;
+  idleTurn.timer = setTimeout(async () => {
+    // let the flipbooks on screen finish decoding first: that is the busiest moment of a page load, and a
+    // live machine mounting on top of it would stutter both
+    const flips = [...slots.values()].map((s) => s.flip?.done).filter(Boolean);
+    await Promise.race([Promise.all(flips), new Promise((r) => setTimeout(r, 6000))]);
+    const i = state.index;
+    if (!wantIdleLive(i) || slotOf(i).failed || scrolling) return scrolling && scheduleIdleLive(400);
+    goLive(i).then(() => syncIdleTurn());
+  }, delay);
+}
+
+const TURN_SPEED = 9; // deg/s: one turn in 40 s
+const TURN_RATES = [30, 20, 15, 12, 10];
+const turn = { raf: 0, last: 0, phi: 0, expect: null, setAt: 0, v: 0, hold: 0, rate: 0, gaps: [], good: 0, bad: 0, slow: 0, warm: 0, id: null, rateBy: {} };
+const angGap = (a, b) => Math.abs(mod(a - b + 180, 360) - 180);
+/** Should the centre's live machine be turning right now? */
+function turnAllowed(i) {
+  const s = slots.get(PROJECTS[i].id);
+  const h = liveH(i);
+  return !!h && wantIdleLive(i) && !livePaused(i) && !state.exploded && !state.chapter && !live.down
+    && !h.state?.playing && performance.now() >= live.playUntil && !s?.loading;
+}
+function syncIdleTurn() {
+  if (turnAllowed(state.index)) { if (!turn.raf) { turn.last = 0; turn.raf = requestAnimationFrame(turnLoop); } }
+  else if (turn.raf) { cancelAnimationFrame(turn.raf); turn.raf = 0; turn.last = 0; turn.v = 0; turn.expect = null; }
+}
+function turnLoop(t) {
+  turn.raf = 0;
+  const i = state.index;
+  if (!turnAllowed(i)) { turn.last = 0; turn.v = 0; turn.expect = null; return; }
+  const h = liveH(i);
+  if (turn.id !== PROJECTS[i].id) { // each machine keeps the redraw rate it settled on
+    if (turn.id) turn.rateBy[turn.id] = turn.rate;
+    turn.id = PROJECTS[i].id;
+    turn.rate = turn.rateBy[turn.id] ?? 0;
+    turn.gaps.length = 0; turn.good = turn.bad = turn.slow = 0;
+    turn.warm = t + 4000; // the first seconds after a machine mounts are busy (module, frames): don't judge them
+  }
+  const dt = turn.last ? Math.min(0.1, (t - turn.last) / 1000) : 0;
+  if (turn.last && t >= turn.hold + 1000 && t >= turn.warm) watchFrames(t - turn.last); // only the steady idle turn
+  turn.last = t;
+  const cur = readAngle(h);
+  // someone turned it (drag, keys, explode angle): carry on from there after a short rest
+  if (turn.expect == null || angGap(cur, turn.expect) > 0.75) {
+    if (turn.expect != null) { turn.hold = t + 2500; turn.v = 0; }
+    turn.phi = cur;
+    turn.expect = cur;
+  }
+  if (t >= turn.hold) {
+    turn.v += (TURN_SPEED - turn.v) * (1 - Math.exp(-dt / 0.9)); // eases in, no jolt
+    turn.phi += turn.v * dt;
+    const rate = TURN_RATES[turn.rate];
+    if (t - turn.setAt >= 1000 / rate - 4) {
+      turn.setAt = t;
+      jumpAngle(h, turn.phi);
+      turn.expect = readAngle(h);
+    }
+  }
+  turn.raf = requestAnimationFrame(turnLoop);
+}
+/** Frame-time watch while the idle turn runs. It counts dropped frames (gaps over 1.5x the display's own
+ *  frame time, so 60, 90 and 120 Hz screens are all judged fairly) and steps the redraw rate down while more
+ *  than 12% of frames drop, back up after a few clean windows. */
+function watchFrames(gap) {
+  turn.gaps.push(gap);
+  const span = turn.gaps.reduce((a, b) => a + b, 0);
+  if (turn.gaps.length < 45 && span < 1500) return; // judge ~0.75-1.5 s at a time
+  const sorted = [...turn.gaps].sort((a, b) => a - b);
+  const frame = Math.min(18, sorted[Math.floor(sorted.length * 0.25)]); // the display's frame time (60 Hz or faster)
+  const dropped = turn.gaps.filter((g) => g > frame * 1.5).length / turn.gaps.length;
+  const fps = (1000 * turn.gaps.length) / span;
+  turn.gaps.length = 0;
+  const last = TURN_RATES.length - 1;
+  turn.slow = dropped > 0.5 ? (turn.slow || 0) + 1 : 0;
+  const touch = !canHover.matches; // phones decide faster: a struggling phone should go still within seconds
+  if (dropped > 0.12 && turn.rate < last) { turn.rate = turn.slow >= (touch ? 1 : 2) ? last : turn.rate + 1; turn.good = 0; turn.bad = 0; }
+  else if (dropped < 0.03 && turn.rate > 0 && ++turn.good >= 4) { turn.rate--; turn.good = 0; }
+  else if (dropped > (canHover.matches ? 0.5 : 0.25) && turn.rate === last && ++turn.bad >= (touch ? 2 : 8)) {
+    // even 10 Hz costs too much on this device for this machine: it rests on its flipbook for this visit
+    // (desktop only when it really struggles; scrolling never pays for the turn, it pauses)
+    turn.bad = 0;
+    turn.rate = 0;
+    idleTurn.skip.add(PROJECTS[state.index].id);
+    if (!state.exploded && !live.hover) handBack(state.index);
+    syncIdleTurn();
+  }
+  idleTurn.rate = TURN_RATES[turn.rate];
+  idleTurn.fps = Math.round(fps);
+  const log = (idleTurn.log ||= []); // for the debug hook (?debug)
+  log.push(`${turn.id} ${Math.round(fps)}fps ${Math.round(dropped * 100)}% dropped -> ${idleTurn.skip.has(turn.id) ? "rest" : idleTurn.rate + "Hz"}`);
+  if (log.length > 30) log.shift();
+}
+/** Touch devices: turn the live machine only when the device clearly has the headroom. A cheap gate first
+ *  (cores, memory, data saver, connection: the live machine is a ~200 KB download); then the turn starts and the
+ *  same frame-time watch as on desktop decides (watchFrames): it steps the redraw rate down, and if even 10 Hz
+ *  keeps the page under 45 fps the machine goes back to its still flipbook for this visit (a swipe still turns it). */
+function probeIdleLive() {
+  if (idleTurn.probed || canHover.matches || still() || /[?&]noidle\b/.test(location.search)) return;
+  idleTurn.probed = true;
+  const c = navigator.connection;
+  const gate = { cores: navigator.hardwareConcurrency || 0, mem: navigator.deviceMemory || 0, net: c?.effectiveType || "", saveData: !!c?.saveData };
+  idleTurn.gate = gate;
+  if (gate.saveData || (gate.net && gate.net !== "4g")) return;
+  if ((gate.cores || 4) < 6 || (gate.mem || 8) < 4) return;
+  idleTurn.on = true;
+  scheduleIdleLive(0);
 }
 
 /** Flipbooks for the centre and its neighbours; everything further away is freed. */
@@ -315,7 +452,7 @@ function arrange() {
     else dropSlot(i);
   });
   // computers with a mouse fetch (not run) the centre's 3D module ahead, so hover is instant
-  if (canHover.matches) idle(() => preloadMachine(PROJECTS[state.index]));
+  if (canHover.matches) idleCb(() => preloadMachine(PROJECTS[state.index]));
   syncTurning();
 }
 
@@ -387,6 +524,7 @@ function settle() {
   setMoving(false);
   arrange();
   centreChanged();
+  scheduleIdleLive();
 }
 
 /** Point the UI at project i (the track animates separately). */
@@ -655,6 +793,7 @@ function silhouette(layer, bandR) {
 }
 
 function layoutCallouts() {
+  if (band.hasAttribute("data-zoom")) return; // hidden while zoomed; the zoomed silhouette would force the strip
   const h = liveH(co.i);
   const layer = slots.get(PROJECTS[co.i]?.id)?.live?.el;
   if (!h || !layer || typeof h.parts !== "function") return;
@@ -794,6 +933,8 @@ band.addEventListener("anatomy:hover", async (e) => {
   if (id) {
     await buildCallouts(state.index);
     if (co.hoverId !== id || state.exploded) return;
+    // a highlight without a chapter of its own (e.g. the Roast-o-Matic's cabinet shell): no name tag
+    if (!co.labels.has(id)) { if (co.mode === "tag") setCalloutMode("off"); return; }
     markHot();
     co.pos.delete(id);
     if (co.mode !== "tag") { co.bbox = null; setCalloutMode("tag"); }
@@ -856,42 +997,78 @@ band.addEventListener("anatomy:part", (e) => {
 });
 
 // ================================================================ zoom to the chosen part
-// While a chapter is open the machine glides in on its part: translate so the part sits in the middle of
-// the free stage, then scale. Fractions of the live layer's rect are used, so the current transform
-// (which scales that rect too) doesn't matter.
-const ZOOM = { desktop: 1.6, phone: 1.9 };
+// While a chapter is open the machine glides in on its part and frames it: the part's on-screen box (from its
+// own SVG elements) is mapped back into the machine-box's unscaled space, then the box is scaled so the part
+// fills ~65% of the free stage (desktop: left of the panel; phone: above the bottom sheet) and moved so the
+// part sits in the middle of it. The CSS rules own the base transform; this only sets --zx/--zy/--zs.
+const ZOOM_FILL = 0.65, ZOOM_MIN = 1.3, ZOOM_MAX = 6;
 let zoomTimer = 0;
-function zoomTo(id, delay = 0) {
+/** The selected part's elements in the live layer (most machines tag [data-asm]; the Roast-o-Matic marks [data-sel]). */
+function partEls(layer, id) {
+  const esc2 = (window.CSS && CSS.escape) ? CSS.escape(id) : id;
+  let els = layer.querySelectorAll(`.iso-live [data-asm="${esc2}"]`);
+  if (!els.length) els = layer.querySelectorAll(".iso-live [data-name][data-sel]");
+  return [...els];
+}
+function partRect(layer, id) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const el of partEls(layer, id)) {
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+  }
+  return x1 > x0 && y1 > y0 ? { x0, y0, x1, y1 } : null;
+}
+function zoomTo(id, delay = 0, pass = 0) {
   clearTimeout(zoomTimer);
-  const p = PROJECTS[state.index];
-  const box = slots.get(p?.id)?.el?.querySelector?.(".machine-box") || document.querySelector(".slide.is-center .machine-box");
+  const box = slides[state.index]?.querySelector(".machine-box");
   const clear = () => { band.removeAttribute("data-zoom"); box?.style.removeProperty("--zx"); box?.style.removeProperty("--zy"); box?.style.removeProperty("--zs"); };
   if (!id || !box || still()) return clear();
   zoomTimer = setTimeout(() => {
-    const h = liveH(state.index);
+    const p = PROJECTS[state.index];
     const layer = slots.get(p.id)?.live?.el;
-    const part = h?.parts?.()?.find((q) => q.id === id);
-    if (!layer || !part || state.chapter !== id) return;
-    const lr = layer.getBoundingClientRect();
-    if (!lr.width || !lr.height) return;
-    const z = isPhone.matches ? ZOOM.phone : ZOOM.desktop;
-    const base = parseFloat(getComputedStyle(box).getPropertyValue("--fit")) || 1;
-    const S = base * (band.hasAttribute("data-strip") ? (isPhone.matches ? 0.72 : 0.82) : 0.86) * z;
-    const dx = (part.x / lr.width - 0.5) * box.offsetWidth;
-    const dy = (part.y / lr.height - 0.5) * box.offsetHeight;
-    let zx = -S * dx, zy = -S * dy; // desktop: the panel shift already centres the free area
-    if (isPhone.matches) {
-      // phone: the sheet covers the lower part of the screen, so aim for the middle of what's left above it.
-      // The base rule lifts the box by 24% of its height; the box itself is centred in the band.
-      const br = band.getBoundingClientRect();
-      const sheetTop = Math.min(br.bottom, innerHeight - panel.offsetHeight);
-      const targetY = (Math.max(br.top, 0) + sheetTop) / 2 - (br.top + br.height / 2);
-      zy = targetY + 0.24 * box.offsetHeight - S * dy;
-    }
-    box.style.setProperty("--zs", z);
+    if (!layer || state.chapter !== id || !liveH(state.index)) return;
+    const pr = partRect(layer, id);
+    const br0 = box.getBoundingClientRect(); // transformed (maybe mid-glide: the mapping below still holds)
+    if (!pr || !box.offsetWidth || !br0.width) return;
+    const phone = isPhone.matches;
+    const strip = band.hasAttribute("data-strip");
+    // the base transform each CSS rule applies (see .band[data-panel] ... .machine-box in site.css)
+    const fit = phone ? 1 : parseFloat(getComputedStyle(box).getPropertyValue("--fit")) || 1;
+    const baseK = phone ? 0.72 : fit * (strip ? 0.82 : 0.86);
+    const panelW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--panel-w")) || 420;
+    const shift = phone ? [0, -0.24 * box.offsetHeight] : [-panelW / 2, strip ? -0.06 * box.offsetHeight : 0];
+    // the part in the box's own unscaled space, relative to the box centre
+    const sNow = br0.width / box.offsetWidth;
+    const cNow = [br0.left + br0.width / 2, br0.top + br0.height / 2];
+    const u = ((pr.x0 + pr.x1) / 2 - cNow[0]) / sNow, v = ((pr.y0 + pr.y1) / 2 - cNow[1]) / sNow;
+    const w = Math.max(8, (pr.x1 - pr.x0) / sNow), h = Math.max(8, (pr.y1 - pr.y0) / sNow);
+    // the free stage, in screen px
+    const br = band.getBoundingClientRect();
+    const top = Math.max(br.top, 0) + 12;
+    const free = phone
+      ? { l: br.left + 12, r: br.right - 12, t: top, b: Math.min(br.bottom, innerHeight - panel.offsetHeight) - 12 }
+      : { l: br.left + 24, r: br.right - panel.offsetWidth - 36, t: top, b: Math.min(br.bottom, innerHeight) - 12 - (strip ? 64 : 0) };
+    const fw = Math.max(80, free.r - free.l), fh = Math.max(80, free.b - free.t);
+    const want = Math.min((ZOOM_FILL * fw) / w, (ZOOM_FILL * fh) / h); // total scale that frames the part
+    const fits = Math.min((0.92 * fw) / w, (0.92 * fh) / h) / baseK; // never so big that it spills out
+    const zs = Math.max(Math.min(ZOOM_MIN, fits), Math.min(ZOOM_MAX, want / baseK));
+    const S = baseK * zs;
+    // the box's layout centre: the centre slide is centred and unscaled, and the box is centred in it
+    const sr = slides[state.index].getBoundingClientRect();
+    const c0 = [sr.left + sr.width / 2, sr.top + sr.height / 2];
+    const target = [(free.l + free.r) / 2, (free.t + free.b) / 2];
+    const zx = target[0] - c0[0] - shift[0] - S * u;
+    const zy = target[1] - c0[1] - shift[1] - S * v;
+    const old = [parseFloat(box.style.getPropertyValue("--zs")) || 1, parseFloat(box.style.getPropertyValue("--zx")) || 0, parseFloat(box.style.getPropertyValue("--zy")) || 0];
+    if (pass > 0 && Math.abs(zs / old[0] - 1) < 0.02 && Math.abs(zx - old[1]) < 4 && Math.abs(zy - old[2]) < 4) return; // landed
+    box.style.setProperty("--zs", zs.toFixed(3));
     box.style.setProperty("--zx", Math.round(zx) + "px");
     box.style.setProperty("--zy", Math.round(zy) + "px");
     band.setAttribute("data-zoom", "");
+    // correction passes once each glide has landed: some machines are still moving when a part is picked
+    // (the turn to the explode angle, a part lifting), so measure again until the framing holds
+    if (pass < 4) zoomTimer = setTimeout(() => zoomTo(id, 0, pass + 1), 800);
   }, delay);
 }
 
@@ -960,6 +1137,7 @@ function closeChapter({ restore = true, deselect = true } = {}) {
   panel.hidden = true;
   band.removeAttribute("data-panel");
   zoomTo(null);
+  if (state.exploded && co.mode === "strip" && !isPhone.matches) scheduleCallouts(750); // side columns again once zoomed out
   if (deselect) liveH(state.index)?.select(null);
   markCurrent();
   co.forceUntil = performance.now() + 900;
@@ -1048,12 +1226,20 @@ function navSpy() {
 // callouts and the idle turn only run while the stage is on screen and the tab is showing
 new IntersectionObserver((entries) => {
   bandVisible = entries[entries.length - 1].isIntersecting;
-  syncTurning();
+  applyPause();
+  scheduleIdleLive();
   if (!bandVisible) hideCallouts();
   else if (state.exploded && !state.moving) scheduleCallouts(0);
 }).observe(band);
-document.addEventListener("visibilitychange", syncTurning);
-reducedMQ.addEventListener?.("change", syncTurning);
+document.addEventListener("visibilitychange", () => { applyPause(); scheduleIdleLive(); });
+reducedMQ.addEventListener?.("change", () => { applyPause(); scheduleIdleLive(); });
+// the live machine stops redrawing while the page scrolls, so scrolling keeps the whole frame budget
+let scrollTimer = 0;
+addEventListener("scroll", () => {
+  if (!scrolling) { scrolling = true; applyPause(); }
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => { scrolling = false; applyPause(); }, 180);
+}, { passive: true });
 addEventListener("resize", () => {
   renderTrack();
   co.widths.clear();
@@ -1061,6 +1247,7 @@ addEventListener("resize", () => {
   co.forceUntil = performance.now() + 300;
   wakeCallouts();
   if (state.exploded && co.mode !== "off") scheduleCallouts(60); // reflow (side columns or strip)
+  if (state.chapter) zoomTo(state.chapter, 150); // re-frame the part for the new stage size
 }, { passive: true });
 
 // ================================================================ start
@@ -1101,8 +1288,13 @@ function intro() {
 // the flipbook starts after first paint so the page appears straight away
 requestAnimationFrame(() => setTimeout(() => {
   showFlip(state.index);
-  intro().then(() => setTimeout(() => { introDone = true; arrange(); centreChanged(); }, INTRO ? 1000 : 0));
+  intro().then(() => setTimeout(() => {
+    introDone = true;
+    arrange();
+    centreChanged();
+    if (canHover.matches) scheduleIdleLive(); else idleCb(() => probeIdleLive(), 2500);
+  }, INTRO ? 1000 : 0));
 }, 0));
 
 // test hook: ?debug exposes internals for the test scripts
-if (new URLSearchParams(location.search).has("debug")) window.__kn = { state, liveH, co, setCalloutMode, slots, goLive, handBack, PROJECTS, get introDone() { return introDone; }, get bandVisible() { return bandVisible; } };
+if (new URLSearchParams(location.search).has("debug")) window.__kn = { state, liveH, co, setCalloutMode, slots, goLive, handBack, PROJECTS, idleTurn, turn, get scrolling() { return scrolling; }, get introDone() { return introDone; }, get bandVisible() { return bandVisible; } };

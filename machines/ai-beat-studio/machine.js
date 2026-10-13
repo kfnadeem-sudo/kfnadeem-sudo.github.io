@@ -3861,6 +3861,7 @@ export function mount(container, { theme = "dark", autoRotate = true, debug = fa
       if (id && node.getAttribute("data-asm") === id) node.setAttribute("data-hov", "");
       else node.removeAttribute("data-hov");
     }
+    fire("anatomy:hover", { id });
   }
   function parts() {
     const svg = stage.querySelector("svg");

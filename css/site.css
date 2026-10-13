@@ -167,9 +167,13 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
 /* hovered / selected part: the machines stroke it in --anatomy-accent. Pure red is the one colour in a
    grey drawing, so the blueprint filter (js/look.js) can pick it out and paint it safety yellow. */
 #track .iso { --anatomy-accent: #ff0000; }
-/* ai-beat-studio has no accent hook yet: same look applied from here */
+/* ai-beat-studio has no accent hook yet: same look applied from here. Only the edge linework turns red
+   (-> yellow): its punched holes, vents and QR also use --anatomy-mid/hi, and recolouring those vars turned
+   the dense piano roll into a solid yellow slab at small sizes (13 Oct). */
 #track .abs-root .iso-live [data-asm][data-hov],
-#track .abs-root[data-sel] .iso-live [data-asm][data-on] { filter: none; --anatomy-lo: #ff0000; --anatomy-mid: #ff0000; --anatomy-hi: #ff0000; }
+#track .abs-root[data-sel] .iso-live [data-asm][data-on] { filter: none; }
+#track .abs-root .iso-live [data-asm][data-hov] :is(.iso-line, .iso-edge, .iso-crease, .iso-bevel),
+#track .abs-root[data-sel] .iso-live [data-asm][data-on] :is(.iso-line, .iso-edge, .iso-crease, .iso-bevel) { stroke: #ff0000; }
 
 /* callouts: labels outside the silhouette, joined to parts by hairline leaders */
 .callouts { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
@@ -411,3 +415,9 @@ a.contact-row[href]:hover .contact-v { text-decoration: underline; text-decorati
 
 /* zoom into the chosen part while its chapter is open: labels step aside so they do not float off the parts */
 .band[data-zoom] .callouts, .band[data-zoom] .strip { opacity: 0; pointer-events: none; transition: opacity .25s var(--ease); }
+
+/* ai-beat-studio: a grab hand over the machine, the pointer only over a part (like the other machines) */
+#track .abs-stage { cursor: grab; }
+#track .abs-stage[data-drag] { cursor: grabbing; }
+/* while zoomed in, the machine stays inside the stage instead of drawing over the text below it */
+.band[data-zoom] .track { overflow: clip; }
