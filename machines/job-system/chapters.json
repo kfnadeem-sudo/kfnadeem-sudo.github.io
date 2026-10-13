@@ -1,0 +1,37 @@
+{
+  "hopper": {
+    "title": "Card hopper - every job, one place",
+    "body": "Every enquiry becomes a job card that moves from first contact to final invoice. Nothing lives in side spreadsheets any more.",
+    "tech": ["Next.js", "SQLite"]
+  },
+  "brush": {
+    "title": "Reading brush - stage gates",
+    "body": "Each stage checks the job has what it needs - photos, a booked site visit, a sent form - before it can move on. A missing item sends it to the hold pocket instead of slipping through.",
+    "tech": ["TypeScript rules", "Automated tests"]
+  },
+  "pegboard": {
+    "title": "Peg board - crew planning",
+    "body": "A planning board shows every crew against every day, with timesheets underneath. Site crews use a tablet app that works with no signal.",
+    "tech": ["Android", "Offline sync"]
+  },
+  "stamp": {
+    "title": "Invoice stamp - money in",
+    "body": "Invoices and debtors are tracked against each job, with reminders at set days.",
+    "tech": ["Accounting integration"]
+  },
+  "patch": {
+    "title": "Patch cable - safe AI access",
+    "body": "An AI connector with about 40 tools lets an assistant look things up and help with jobs. Each person has their own key that can be switched off, and every change is logged under their name.",
+    "tech": ["Model Context Protocol (MCP)"]
+  },
+  "chute": {
+    "title": "Migration chute - moving house",
+    "body": "All past job history was moved across from the old ERP with a read-only exporter and importer, tested on fake data first.",
+    "tech": ["Node scripts", "Data migration"]
+  },
+  "bench": {
+    "title": "Test bench - quality",
+    "body": "Over 1,100 unit tests and 86 end-to-end tests run before every update.",
+    "tech": ["Vitest", "Playwright"]
+  }
+}

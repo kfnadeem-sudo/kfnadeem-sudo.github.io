@@ -4688,9 +4688,10 @@ function mount(container, options = {}) {
     play: () => startRound(),
     parts: () => parts(),
     hover: (id) => setHover(id ?? null),
-    setAngle: (deg) => {
+    setAngle: (deg, o) => {
       hold();
       st.target = deg;
+      if (o && o.instant) { st.angle = deg; st.vel = 0; draw(); } // portfolio flipbook hand-off
       run();
     },
     get state() {

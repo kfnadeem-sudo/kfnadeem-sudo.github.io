@@ -1,6 +1,11 @@
 import { CONFIG, isSet } from "./config.js";
 import { PROJECTS } from "./projects.js";
 import { asset, stillLayer, liveMachine, preloadMachine, loadChapters } from "./machine-loader.js";
+import { flipbookLayer } from "./flipbook.js";
+import { readAngle, jumpAngle } from "./angle.js";
+import { installFilters } from "./look.js";
+
+installFilters();
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, "0");
@@ -8,6 +13,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const mod = (n, m) => ((n % m) + m) % m;
 const isPhone = matchMedia("(max-width: 767px)");
 const reducedMQ = matchMedia("(prefers-reduced-motion: reduce)");
+const canHover = matchMedia("(hover: hover) and (pointer: fine)");
 const still = () => reducedMQ.matches;
 const SPRING = "cubic-bezier(.16, 1, .3, 1)";
 const idle = (fn, t = 1500) => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: t }) : setTimeout(fn, 300));
@@ -20,15 +26,13 @@ const N = PROJECTS.length;
 const INTRO = document.documentElement.classList.contains("intro");
 let introDone = !INTRO;
 
-// Heavy 3D machines: phones, low-core devices and reduced-motion users get a still
-// first and mount the 3D machine only when they ask for it.
-const LITE = isPhone.matches || (navigator.hardwareConcurrency || 8) <= 4 || reducedMQ.matches;
+// Every machine idles as a flipbook: pre-rendered frames in the final look, so turning costs next to
+// nothing. The live 3D machine mounts only when someone interacts with it (hover, drag, click, Explode,
+// keyboard), fades in at the same angle, and hands back to the flipbook a few seconds after they stop.
 const store = {
   get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} },
 };
-let opted3d = store.get("kn-3d") === "1";
-const want3d = () => !LITE || opted3d;
 
 const state = {
   index: 0,      // the project in the middle (or heading there)
@@ -41,6 +45,7 @@ const state = {
   chapters: [],
   returnFocus: null,
 };
+let bandVisible = true;
 
 // ================================================================ slides
 const slides = PROJECTS.map((p, i) => {
@@ -50,25 +55,25 @@ const slides = PROJECTS.map((p, i) => {
   slide.setAttribute("role", "group");
   slide.setAttribute("aria-roledescription", "slide");
   slide.setAttribute("aria-label", `${i + 1} of ${N}: ${p.name}`);
-  slide.innerHTML = `<div class="machine-box"><div class="machine-host"></div></div>
-    <button class="pill slide-3d" type="button" hidden>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>
-      <span>${isPhone.matches ? "Tap to explore in 3D" : "Explore in 3D"}</span>
-    </button>`;
+  slide.innerHTML = `<div class="machine-box"><div class="machine-host"></div></div><span class="loading-3d" aria-hidden="true">Loading 3D</span>`;
   const box = slide.querySelector(".machine-box");
   if (p.aspect) box.style.setProperty("--ar", p.aspect);
   if (p.fit) box.style.setProperty("--fit", p.fit);
+  if (p.tone) slide.dataset.tone = p.tone;
   slide.addEventListener("click", () => {
     if (i !== state.index && !suppressClick) goTo(i);
   });
-  slide.querySelector(".slide-3d").addEventListener("click", async (e) => {
-    e.stopPropagation();
-    opted3d = true;
-    store.set("kn-3d", "1");
-    if (state.exploded) await setExploded(false);
-    goLive(i).then(() => $("explode-btn")?.focus({ preventScroll: true }));
-    sync3d();
+  const host = slide.querySelector(".machine-host");
+  // a mouse over the machine wakes the live one up (hover highlights and name tags need it)
+  host.addEventListener("pointerenter", (e) => {
+    live.hover = true;
+    if (e.pointerType === "mouse" && i === state.index && !state.moving) goLive(i);
   });
+  host.addEventListener("pointerleave", () => { live.hover = false; });
+  host.addEventListener("pointermove", (e) => { if (e.buttons) noteActivity(); }, { passive: true });
+  host.addEventListener("pointerdown", () => { live.down = true; noteActivity(); });
+  addEventListener("pointerup", () => { live.down = false; }, { passive: true });
+  host.addEventListener("keydown", () => noteActivity());
   track.appendChild(slide);
   return slide;
 });
@@ -77,23 +82,67 @@ $("count-all").textContent = pad(N);
 const hostOf = (i) => slides[i].querySelector(".machine-host");
 
 // ================================================================ machine slots
-// slot: { still: {el,setExploded,ready}|null, live: {el,h}|null, loading, failed, visual: Promise }
+// slot: { flip, still, live: {el,h}|null, shown (live on screen), loading, failed, visual: Promise }
 const slots = new Map();
 function slotOf(i) {
   const id = PROJECTS[i].id;
   if (!slots.has(id)) {
     let resolve;
     const visual = new Promise((r) => (resolve = r));
-    slots.set(id, { still: null, live: null, loading: null, failed: false, visual, seen: resolve });
+    slots.set(id, { flip: null, flipFailed: false, still: null, live: null, shown: false, loading: null, failed: false, visual, seen: resolve });
   }
   return slots.get(id);
 }
-const liveH = (i) => slots.get(PROJECTS[i].id)?.live?.h ?? null;
+/** The live machine's handle, only while it is the one on screen. */
+const liveH = (i) => {
+  const s = slots.get(PROJECTS[i].id);
+  return s?.live && s.shown ? s.live.h : null;
+};
 const onStillClick = (i) => () => i === state.index && toggleExplode();
+
+function showFlip(i) {
+  const s = slotOf(i);
+  if (s.flip || s.flipFailed) return s.flip ? s.flip.ready.catch(() => {}) : showStill(i);
+  const p = PROJECTS[i];
+  const f = flipbookLayer(p, {
+    onTap: () => { if (i === state.index && !suppressClick) toggleExplode(); },
+    onDrag: (on) => { live.flipDrag = on; noteActivity(); },
+    onInfo: (m) => { if (!p.aspect && m.ar) slides[i].querySelector(".machine-box").style.setProperty("--ar", m.ar); },
+  });
+  s.flip = f;
+  f.el.tabIndex = -1;
+  f.el.addEventListener("keydown", (e) => onFlipKey(e, i));
+  hostOf(i).prepend(f.el);
+  f.ready.then(
+    () => { s.seen(); syncTurning(); },
+    () => {
+      console.info(`[portfolio] ${p.machine}: no flipbook, showing a still`);
+      s.flipFailed = true;
+      f.destroy();
+      s.flip = null;
+      if (!s.shown) showStill(i);
+    }
+  );
+  syncFocus();
+  return f.ready.catch(() => {});
+}
+
+function onFlipKey(e, i) {
+  const f = slotOf(i).flip;
+  if (!f) return;
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    setExploded(true).then(() => $("explode-btn")?.focus({ preventScroll: true }));
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    f.turnBy((e.key === "ArrowLeft" ? 1 : -1) * (e.shiftKey ? 45 : 15));
+    noteActivity();
+  }
+}
 
 function showStill(i) {
   const s = slotOf(i);
-  if (s.live) return Promise.resolve();
+  if (s.shown) return Promise.resolve();
   if (!s.still) {
     s.still = stillLayer(PROJECTS[i], onStillClick(i));
     hostOf(i).appendChild(s.still.el);
@@ -103,50 +152,136 @@ function showStill(i) {
   return s.still.ready;
 }
 
+/** Mount (or wake) the live machine for slide i and fade it in at the flipbook's angle. */
 function goLive(i) {
   const s = slotOf(i);
-  if (s.live) return Promise.resolve(s.live.h);
+  if (s.live) { reveal(i); return Promise.resolve(s.live.h); }
   if (s.loading) return s.loading;
+  if (s.failed) return Promise.resolve(null);
   const p = PROJECTS[i];
   const layer = document.createElement("div");
-  layer.className = "layer";
+  layer.className = "layer layer-live";
   layer.dataset.out = "";
   hostOf(i).appendChild(layer);
-  const fallbackTimer = setTimeout(() => showStill(i), 1200); // show a still if the model is slow
-  s.failed = false;
+  slides[i].setAttribute("data-loading", "");
   s.loading = liveMachine(layer, p)
     .then((h) => {
-      clearTimeout(fallbackTimer);
       s.loading = null;
+      slides[i].removeAttribute("data-loading");
+      if (i !== state.index) { // moved on while it loaded
+        h.destroy?.();
+        layer.remove();
+        return null;
+      }
       s.live = { el: layer, h };
       if (!p.aspect) {
         const vb = layer.querySelector("svg[viewBox]")?.viewBox.baseVal;
         if (vb && vb.width && vb.height) layer.closest(".machine-box").style.setProperty("--ar", vb.width / vb.height);
       }
-      h.setPaused(state.moving || i !== state.index);
-      if (i === state.index && state.exploded) h.explode(true);
-      requestAnimationFrame(() => layer.removeAttribute("data-out"));
-      if (s.still) {
-        const old = s.still;
-        s.still = null;
-        old.el.dataset.out = "";
-        setTimeout(() => old.el.remove(), 500);
-      }
-      s.seen();
-      if (i === state.index) centreChanged();
+      reveal(i);
       return h;
     })
     .catch((err) => {
-      clearTimeout(fallbackTimer);
-      console.info(`[portfolio] ${p.machine}: showing a still (${err.message})`);
+      console.info(`[portfolio] ${p.machine}: 3D model didn't load (${err.message})`);
+      slides[i].removeAttribute("data-loading");
       layer.remove();
       s.loading = null;
       s.failed = true;
-      showStill(i);
+      if (!s.flip) showStill(i);
+      if (state.exploded && i === state.index) { showStill(i); s.still?.setExploded(true); }
       if (i === state.index) centreChanged();
       return null;
     });
   return s.loading;
+}
+
+function reveal(i) {
+  const s = slotOf(i);
+  if (!s.live || i !== state.index) return;
+  const { h, el } = s.live;
+  noteActivity();
+  if (!s.shown) {
+    if (s.flip) jumpAngle(h, s.flip.angle);
+    s.shown = true;
+    h.setPaused(state.moving);
+    el.removeAttribute("data-out");
+    s.flip?.setTurning(false);
+    clearTimeout(s.hideFlip);
+    s.hideFlip = setTimeout(() => { if (s.shown && s.flip) s.flip.el.dataset.out = ""; }, 480);
+    if (s.still) {
+      const old = s.still;
+      s.still = null;
+      old.el.dataset.out = "";
+      setTimeout(() => old.el.remove(), 500);
+    }
+  }
+  if (state.exploded) explodeLive(i, h);
+  syncFocus();
+  centreChanged();
+}
+
+/** Back to the flipbook at the live machine's angle; the live one fades out and pauses. */
+function handBack(i, { destroy = false } = {}) {
+  const s = slots.get(PROJECTS[i].id);
+  if (!s?.live) return;
+  const { h, el } = s.live;
+  if (s.shown && s.flip) {
+    s.flip.setAngle(readAngle(h));
+    clearTimeout(s.hideFlip);
+    s.flip.el.removeAttribute("data-out");
+  }
+  s.shown = false;
+  el.dataset.out = "";
+  if (i === state.index) { hideCallouts(); co.hoverId = null; }
+  if (destroy) {
+    h.destroy?.();
+    el.remove();
+    s.live = null;
+  } else setTimeout(() => { if (!s.shown) h.setPaused(true); }, 500);
+  syncFocus();
+  syncTurning();
+}
+
+// ---------------------------------------------------------------- live idle watch: hand back to the flipbook
+const live = { last: 0, hover: false, down: false, flipDrag: false, playUntil: 0, timer: 0 };
+function noteActivity() {
+  live.last = performance.now();
+  wakeCallouts();
+  const s = slots.get(PROJECTS[state.index].id);
+  clearTimeout(live.timer);
+  live.timer = setTimeout(liveIdleCheck, 700);
+}
+function liveIdleCheck() {
+  const i = state.index;
+  const s = slots.get(PROJECTS[i].id);
+  if (!s?.live || !s.shown) return;
+  const quiet = performance.now() - live.last;
+  const playing = !!s.live.h.state?.playing || performance.now() < live.playUntil;
+  const busy = state.exploded || state.chapter || state.moving || live.hover || live.down || playing
+    || !!hostOf(i).querySelector(":focus-visible"); // a keyboard user working the machine keeps it live
+  if (!busy && quiet > 3500 && s.flip) return handBack(i);
+  live.timer = setTimeout(liveIdleCheck, busy ? 900 : 400);
+}
+
+/** Only the centre flipbook turns, and only when nothing else is going on. */
+function syncTurning() {
+  PROJECTS.forEach((p, i) => {
+    const s = slots.get(p.id);
+    if (!s?.flip) return;
+    s.flip.setTurning(i === state.index && introDone && !state.moving && !state.exploded && !s.shown
+      && !still() && !document.hidden && bandVisible);
+  });
+}
+/** Keyboard focus goes to whichever version of the centre machine is showing. */
+function syncFocus() {
+  PROJECTS.forEach((p, i) => {
+    const s = slots.get(p.id);
+    if (s?.flip) {
+      s.flip.el.tabIndex = i === state.index && !s.shown ? 0 : -1;
+      s.flip.el.setAttribute("role", i === state.index ? "button" : "img");
+      s.flip.el.setAttribute("aria-label", `${p.machineLabel || p.name}. Press Enter to take it apart; arrow keys turn it.`);
+    }
+  });
 }
 
 function dropSlot(i) {
@@ -155,33 +290,29 @@ function dropSlot(i) {
   if (!s || s.loading) return;
   s.live?.h.destroy?.();
   s.live?.el.remove();
+  s.flip?.destroy();
   s.still?.el.remove();
   slots.delete(id);
 }
 
 function applyPause() {
-  PROJECTS.forEach((p, i) => liveH(i)?.setPaused(state.moving || i !== state.index));
+  PROJECTS.forEach((p, i) => {
+    const s = slots.get(p.id);
+    if (s?.live) s.live.h.setPaused(state.moving || i !== state.index || !s.shown);
+  });
+  syncTurning();
 }
 
-/** Mount, warm, pause and free machines around the centre. */
+/** Flipbooks for the centre and its neighbours; everything further away is freed. */
 function arrange() {
   PROJECTS.forEach((p, i) => {
     const o = Math.abs(wrapOffset(i - state.index));
-    if (o === 0) (want3d() ? goLive(i) : showStill(i));
-    else if (o === 1) {
-      if (want3d()) idle(() => (!state.moving && Math.abs(wrapOffset(i - state.index)) === 1 ? goLive(i) : null)); // warm, paused
-      else showStill(i);
-    } else dropSlot(i); // more than one item away: free the memory
+    if (o <= 1) showFlip(i);
+    else dropSlot(i);
   });
-  if (want3d()) idle(() => preloadMachine(PROJECTS[mod(state.index + 1, N)]));
-  sync3d();
-}
-
-function sync3d() {
-  slides.forEach((s, i) => {
-    const slot = slots.get(PROJECTS[i].id);
-    s.querySelector(".slide-3d").hidden = !(i === state.index && LITE && !opted3d && !slot?.live && !state.exploded && !state.moving);
-  });
+  // computers with a mouse fetch (not run) the centre's 3D module ahead, so hover is instant
+  if (canHover.matches) idle(() => preloadMachine(PROJECTS[state.index]));
+  syncTurning();
 }
 
 // ================================================================ track (spring physics, transform/opacity only)
@@ -189,15 +320,16 @@ const wrapOffset = (o) => {
   o = mod(o + N / 2, N) - N / 2;
   return o;
 };
-const spacing = () => (isPhone.matches ? band.clientWidth * 0.84 : Math.min(band.clientWidth * 0.42, 660));
+const spacing = () => (isPhone.matches ? band.clientWidth * 0.86 : Math.min(band.clientWidth * 0.47, 760));
 
 function renderTrack() {
   const sp = spacing();
   slides.forEach((s, i) => {
     const o = wrapOffset(i - state.p);
     const a = Math.abs(o);
-    const scale = 1 - 0.44 * Math.min(a, 1);
-    const op = a <= 1 ? 1 - 0.42 * a : Math.max(0, 0.58 * (1 - (a - 1) / 0.45));
+    // neighbours sit small and faint so the centre machine owns the stage
+    const scale = 1 - 0.58 * Math.min(a, 1);
+    const op = a <= 1 ? 1 - 0.7 * a : Math.max(0, 0.3 * (1 - (a - 1) / 0.45));
     s.style.transform = `translate3d(-50%, -50%, 0) translate3d(${(o * sp).toFixed(2)}px, 0, 0) scale(${scale.toFixed(4)})`;
     s.style.opacity = op.toFixed(3);
     s.style.visibility = op < 0.01 ? "hidden" : "";
@@ -246,7 +378,6 @@ function setMoving(on) {
   state.moving = on;
   applyPause();
   if (on) hideCallouts();
-  sync3d();
 }
 function settle() {
   setMoving(false);
@@ -259,6 +390,7 @@ function setIndex(i, { updateHash = true } = {}) {
   if (i === state.index) return;
   const dir = Math.sign(wrapOffset(i - state.index)) || 1;
   resetCallouts();
+  handBack(state.index, { destroy: true }); // the old centre goes back to its flipbook and frees its 3D
   state.index = i;
   slides.forEach((s, k) => {
     const centre = k === i;
@@ -269,8 +401,8 @@ function setIndex(i, { updateHash = true } = {}) {
   });
   updateChrome();
   swapInfo(PROJECTS[i], dir);
-  // never mount a machine mid-transition: a still covers it, the live one mounts on settle
-  if (!slots.get(PROJECTS[i].id)?.live) showStill(i);
+  showFlip(i);
+  syncFocus();
   if (updateHash) history.replaceState(null, "", `#${PROJECTS[i].id}`);
   $("announce").textContent = `Project ${i + 1} of ${N}: ${PROJECTS[i].name}`;
 }
@@ -409,20 +541,25 @@ function swapInfo(p, dir) {
   };
 }
 
-/** Machine-specific extras (e.g. "Play a round"), shown only when the live machine supports them. */
+/** Machine-specific extras (e.g. "Play a round"). They wake the live machine when pressed. */
 function refreshExtras() {
   const p = PROJECTS[state.index];
   const s = slots.get(p.id);
-  const h = s?.live?.h;
   const note = $("fallback-note");
   if (note) note.hidden = !s?.failed;
   const box = $("extras");
   if (!box) return;
-  const extras = h ? (p.extras || []).filter((x) => typeof h[x.call] === "function") : [];
+  const extras = s?.failed ? [] : p.extras || [];
   box.innerHTML = extras.map((x, k) => `<button class="pill pill-quiet" type="button" data-k="${k}">${esc(x.label)}</button>`).join("");
   box.querySelectorAll("button").forEach((b) => b.addEventListener("click", async () => {
+    const i = state.index;
     if (state.exploded) await setExploded(false);
-    h[extras[b.dataset.k].call]();
+    const h = await goLive(i);
+    const fn = extras[b.dataset.k].call;
+    if (!h || i !== state.index || typeof h[fn] !== "function") return;
+    live.playUntil = performance.now() + 14000; // keep it live (and calm) while the demo plays
+    h[fn]();
+    noteActivity();
   }));
 }
 
@@ -430,7 +567,7 @@ function refreshExtras() {
 let explodedOnce = store.get("kn-exploded") === "1";
 function syncHint() {
   const el = $("hint");
-  el.textContent = isPhone.matches || LITE ? "Tap the machine to take it apart." : "Click the machine to take it apart.";
+  el.textContent = canHover.matches ? "Drag the machine to turn it. Click it to take it apart." : "Swipe the machine to turn it. Tap it to take it apart.";
   el.style.opacity = explodedOnce ? "0" : "";
   el.toggleAttribute("aria-hidden", explodedOnce);
 }
@@ -438,11 +575,8 @@ syncHint();
 
 function syncExplodeUi() {
   const btn = $("explode-btn");
-  if (btn) {
-    btn.setAttribute("aria-pressed", String(state.exploded));
-  }
+  if (btn) btn.setAttribute("aria-pressed", String(state.exploded));
   band.toggleAttribute("data-exploded", state.exploded);
-  sync3d();
 }
 
 // ================================================================ callouts
@@ -587,11 +721,20 @@ function layoutCallouts() {
     });
   }
 }
+// The leaders follow the parts every frame while anything moves, then the loop parks itself once the
+// machine has been still for ~0.75 s (no per-frame layout reads at rest). Activity wakes it again.
 function calloutLoop() {
   co.raf = 0;
   if (co.mode !== "side" && co.mode !== "tag") return;
   layoutCallouts();
+  const sig = [...co.pos.values()].reduce((a, p) => a + p.y, 0) + (co.bbox ? co.bbox.l + co.bbox.t * 3 : 0);
+  co.still = Math.abs(sig - (co.sig ?? NaN)) < 0.05 ? (co.still || 0) + 1 : 0;
+  co.sig = sig;
+  if (co.still > 45 && performance.now() > co.forceUntil && !live.down) return;
   co.raf = requestAnimationFrame(calloutLoop);
+}
+function wakeCallouts() {
+  if ((co.mode === "side" || co.mode === "tag") && !co.raf) { co.still = 0; co.raf = requestAnimationFrame(calloutLoop); }
 }
 function setCalloutMode(mode) {
   co.mode = mode;
@@ -643,41 +786,57 @@ band.addEventListener("anatomy:hover", async (e) => {
   const id = e.detail?.id ?? null;
   co.hoverId = id;
   markHot();
-  if (state.exploded || state.moving || isPhone.matches) return;
+  if (state.exploded || state.moving || isPhone.matches || !liveH(state.index)) return;
   if (id) {
     await buildCallouts(state.index);
     if (co.hoverId !== id || state.exploded) return;
     markHot();
     co.pos.delete(id);
     if (co.mode !== "tag") { co.bbox = null; setCalloutMode("tag"); }
+    else wakeCallouts();
   } else if (co.mode === "tag") setCalloutMode("off");
 });
 
-/** Called when the centre item settles or its machine changes (still to live). */
+/** Called when the centre item settles or its machine changes (flipbook to live). */
 function centreChanged() {
   refreshExtras();
-  sync3d();
   if (!state.moving && state.exploded) scheduleCallouts(950);
 }
 
 // ================================================================ explode
+/** Take the live machine apart and turn it to the angle that shows every part best. */
+function explodeLive(i, h) {
+  const p = PROJECTS[i];
+  if (!h.state?.exploded) h.explode(true);
+  if (typeof h.setAngle === "function" && p.explodeAngle != null) {
+    const cur = readAngle(h);
+    h.setAngle(cur + mod(p.explodeAngle - cur + 180, 360) - 180);
+  }
+}
+
 async function setExploded(on, { fromMachine = false } = {}) {
   on = !!on;
   if (on === state.exploded) return;
   state.exploded = on;
-  const p = PROJECTS[state.index];
+  const i = state.index;
+  const p = PROJECTS[i];
   hideCallouts();
+  noteActivity();
+  syncTurning();
   if (on && !explodedOnce) { explodedOnce = true; store.set("kn-exploded", "1"); syncHint(); }
   if (on) state.chapters = await loadChapters(p.machine);
   else closeChapter({ restore: false, deselect: false });
-  if (!fromMachine) liveH(state.index)?.explode(on);
-  // turn to the angle that shows every part best, by the shortest way round
-  const h = liveH(state.index);
-  if (on && h && typeof h.setAngle === "function" && p.explodeAngle != null) {
-    const cur = h.state?.angle ?? 0;
-    h.setAngle(cur + mod(p.explodeAngle - cur + 180, 360) - 180);
+  const s = slotOf(i);
+  if (on) {
+    if (s.failed) { showStill(i); s.still?.setExploded(true); }
+    else if (!fromMachine) {
+      const h = await goLive(i); // reveal() explodes it once it is on screen
+      if (h && state.exploded && state.index === i) explodeLive(i, h);
+    }
+  } else {
+    if (!fromMachine) liveH(i)?.explode(false);
+    s.still?.setExploded(false);
   }
-  slots.get(p.id)?.still?.setExploded(on);
   syncExplodeUi();
   if (on) scheduleCallouts(950);
 }
@@ -705,6 +864,7 @@ async function openChapter(id, { select = true, focus = true, from = null } = {}
   if (!wasOpen) state.returnFocus = from || document.activeElement;
   state.chapter = id;
   if (select) liveH(state.index)?.select(id);
+  noteActivity();
 
   const fill = () => {
     $("chapter-num").textContent = `Part ${pad(k + 1)} of ${pad(list.length)}`;
@@ -731,6 +891,7 @@ async function openChapter(id, { select = true, focus = true, from = null } = {}
   markCurrent();
   co.forceUntil = performance.now() + 900; // the stage is making room: keep the leaders glued
   if (focus) setTimeout(() => $("chapter-title").focus({ preventScroll: true }), wasOpen ? 140 : 60);
+  wakeCallouts();
 }
 
 const ARROW = {
@@ -755,6 +916,7 @@ function closeChapter({ restore = true, deselect = true } = {}) {
   if (deselect) liveH(state.index)?.select(null);
   markCurrent();
   co.forceUntil = performance.now() + 900;
+  wakeCallouts();
   if (restore) {
     const back = state.returnFocus && document.contains(state.returnFocus) ? state.returnFocus : $("explode-btn");
     back?.focus({ preventScroll: true });
@@ -836,17 +998,21 @@ function navSpy() {
   addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 }
-// callouts only run while the stage is on screen
+// callouts and the idle turn only run while the stage is on screen and the tab is showing
 new IntersectionObserver((entries) => {
-  const vis = entries[entries.length - 1].isIntersecting;
-  if (!vis) hideCallouts();
+  bandVisible = entries[entries.length - 1].isIntersecting;
+  syncTurning();
+  if (!bandVisible) hideCallouts();
   else if (state.exploded && !state.moving) scheduleCallouts(0);
 }).observe(band);
+document.addEventListener("visibilitychange", syncTurning);
+reducedMQ.addEventListener?.("change", syncTurning);
 addEventListener("resize", () => {
   renderTrack();
   co.widths.clear();
   co.bbox = null;
   co.forceUntil = performance.now() + 300;
+  wakeCallouts();
   if (state.exploded && co.mode !== "off") scheduleCallouts(60); // reflow (side columns or strip)
 }, { passive: true });
 
@@ -885,11 +1051,11 @@ function intro() {
   return Promise.race([slotOf(state.index).visual, new Promise((r) => setTimeout(r, 1600))]).then(go);
 }
 
-// mount after first paint so the page appears straight away
+// the flipbook starts after first paint so the page appears straight away
 requestAnimationFrame(() => setTimeout(() => {
-  if (want3d()) goLive(state.index); else showStill(state.index);
+  showFlip(state.index);
   intro().then(() => setTimeout(() => { introDone = true; arrange(); centreChanged(); }, INTRO ? 1000 : 0));
 }, 0));
 
 // test hook: ?debug exposes internals for the test scripts
-if (new URLSearchParams(location.search).has("debug")) window.__kn = { state, liveH, co, setCalloutMode };
+if (new URLSearchParams(location.search).has("debug")) window.__kn = { state, liveH, co, setCalloutMode, slots, goLive, handBack, PROJECTS, get introDone() { return introDone; }, get bandVisible() { return bandVisible; } };

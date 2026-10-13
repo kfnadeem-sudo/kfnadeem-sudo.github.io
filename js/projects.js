@@ -7,6 +7,7 @@
 // exploded  optional still for the exploded view, same folder
 // aspect    optional width / height of the machine drawing (read from its SVG if left out)
 // fit       optional extra scale when the drawing has a lot of empty margin (1 = none)
+// tone      optional "soft": gentler blueprint tone map for machines drawn with mid-grey faces
 // explodeAngle  optional angle to turn to when exploding (machines with setAngle())
 // extras    optional buttons that call a method on the live machine, e.g. play()
 //           (only shown when the 3D machine is running and has that method)
@@ -27,6 +28,21 @@ export const PROJECTS = [
     exploded: "light-exploded.png",
     extras: [{ label: "Play a round", call: "play" }],
     explodeAngle: -8, // the machine turns here when it comes apart, so every part is in view
+  },
+  {
+    id: "job-system",
+    machine: "job-system",
+    name: "Job System",
+    line: "Replaced a construction firm's ERP with a system the whole team uses every day.",
+    machineLabel: "job-card sorting machine",
+    fit: 1.3,
+    outcome: "Live since September 2026 · whole team, office to site · ERP subscription cancelled",
+    tech: ["Next.js", "TypeScript", "SQLite", "Android", "MCP", "Playwright"],
+    credits: "Specified, tested and rolled out by me; built with Claude",
+    links: [],
+    still: "assembled-light.png",
+    exploded: "exploded-light.png",
+    explodeAngle: 150,
   },
   {
     id: "kn-layerworks",
@@ -56,6 +72,7 @@ export const PROJECTS = [
     links: [],
     still: "light-assembled.png",
     exploded: "light-exploded.png",
+    tone: "soft", // mid-grey faces: a gentler tone map so they read as panels, not white blocks
   },
   {
     id: "on-track",

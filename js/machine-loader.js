@@ -64,7 +64,7 @@ export async function liveMachine(layer, project, { timeout = 20000 } = {}) {
   ]);
   const mount = mod.mount || mod.default;
   if (typeof mount !== "function") throw new Error("no mount()");
-  const handle = mount(layer, { theme: "light" });
+  const handle = mount(layer, { theme: "light", autoRotate: false }); // the flipbook does the idle turning
   if (!handle || typeof handle.explode !== "function") throw new Error("bad handle");
   return handle;
 }

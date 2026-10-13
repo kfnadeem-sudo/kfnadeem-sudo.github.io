@@ -3985,6 +3985,18 @@ export function mount(container, { theme = "dark", autoRotate = true, debug = fa
     select,
     hover,
     parts,
+    // portfolio flipbook hand-off: jump straight to an angle (no turn), and report it
+    setAngle(deg) {
+      if (typeof deg !== "number" || !isFinite(deg)) return;
+      angle = ((deg % 360) + 360) % 360;
+      vel = 0;
+      holdUntil = performance.now() + 2500;
+      render(true);
+      run();
+    },
+    get state() {
+      return { angle, exploded: fTarget > 0, selected };
+    },
     setPaused(p) {
       paused = Boolean(p);
       if (paused && raf) {
