@@ -96,7 +96,8 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
 .band {
   position: relative;
   height: var(--band-h);
-  overflow: hidden;
+  overflow-x: clip; /* clip sideways only: the turntable glow may spill below the band */
+  overflow-y: visible;
   container-type: size;
   touch-action: pan-y;
   user-select: none;
@@ -126,7 +127,7 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
 }
 /* exploded with side labels: a little smaller so both label columns have room */
 .band[data-exploded]:not([data-strip]) .slide.is-center .machine-box { transform: scale(calc(var(--fit, 1) * .94)); }
-.band[data-panel] .slide.is-center .machine-box { transform: translateX(calc(var(--panel-w) / -2)) scale(calc(var(--fit, 1) * .86)); }
+.band[data-panel]:not([data-strip]) .slide.is-center .machine-box { transform: translateX(calc(var(--panel-w) / -2)) translate(var(--zx, 0px), var(--zy, 0px)) scale(calc(var(--fit, 1) * .86 * var(--zs, 1))); }
 .machine-host { position: absolute; inset: 0; }
 .layer { position: absolute; inset: 0; transition: opacity .45s var(--ease), visibility 0s; }
 .layer > * { width: 100%; height: 100%; }
@@ -137,7 +138,10 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
 /* idle flipbook: two stacked frames, the top one cross-fades to the next angle */
 .layer-flip { cursor: grab; touch-action: pan-y; }
 .layer-flip[data-drag] { cursor: grabbing; }
-.layer-flip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.layer-flip img { position: absolute;
+  /* overhang by the frame margin: --pad is a fraction of the width; top/bottom % are of the height, so scale by --ar */
+  left: calc(var(--pad, 0) * -100%); top: calc(var(--pad, 0) * var(--ar, 1) * -100%);
+  width: calc(100% * (1 + 2 * var(--pad, 0))); height: calc(100% * (1 + 2 * var(--pad, 0) * var(--ar, 1))); max-width: none; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .layer-flip .flip-b { opacity: 0; }
 .slide.is-center .layer-flip:focus-visible { outline-offset: -4px; border-radius: 12px; }
 
@@ -212,7 +216,7 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
 @media (min-width: 768px) { .band[data-panel] .strip { right: calc(var(--panel-w) + 24px); } }
 .band[data-strip] .strip { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition: opacity .35s var(--ease), transform .55s var(--spring); }
 .band[data-strip] .slide.is-center .machine-box { transform: translateY(-6%) scale(calc(var(--fit, 1) * .86)); }
-.band[data-strip][data-panel] .slide.is-center .machine-box { transform: translateX(calc(var(--panel-w) / -2)) translateY(-6%) scale(calc(var(--fit, 1) * .82)); }
+.band[data-strip][data-panel] .slide.is-center .machine-box { transform: translateX(calc(var(--panel-w) / -2)) translateY(-6%) translate(var(--zx, 0px), var(--zy, 0px)) scale(calc(var(--fit, 1) * .82 * var(--zs, 1))); }
 .strip-btn { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid rgba(255, 210, 63, .55); border-radius: 999px; background: rgba(7, 26, 51, .9); font: 500 14px var(--sans); color: var(--ink); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
 .strip-btn .in { display: inline-flex; align-items: center; gap: 8px; }
 .strip-btn b { font: 500 12px var(--mono); color: var(--accent); }
@@ -358,7 +362,7 @@ a.contact-row[href]:hover .contact-v { text-decoration: underline; text-decorati
   .ticks { display: none; }
   .slide { width: 96cqw; height: 96cqh; }
   .band[data-panel] .slide.is-center .machine-box,
-  .band[data-strip][data-panel] .slide.is-center .machine-box { transform: translateY(-24%) scale(calc(var(--fit, 1) * .72)); }
+  .band[data-strip][data-panel] .slide.is-center .machine-box { transform: translateY(-24%) translate(var(--zx, 0px), var(--zy, 0px)) scale(calc(var(--fit, 1) * .72 * var(--zs, 1))); }
   .arrow { top: auto; bottom: 6px; margin-top: 0; width: 44px; height: 44px; }
   .arrow-label { display: none; }
   .info { padding-top: 12px; min-height: 280px; }
@@ -404,3 +408,6 @@ a.contact-row[href]:hover .contact-v { text-decoration: underline; text-decorati
 
 /* fit is a desktop-only zoom: on phones the stage is already edge to edge */
 @media (max-width: 767px) { .machine-box { --fit: 1 !important; } }
+
+/* zoom into the chosen part while its chapter is open: labels step aside so they do not float off the parts */
+.band[data-zoom] .callouts, .band[data-zoom] .strip { opacity: 0; pointer-events: none; transition: opacity .25s var(--ease); }

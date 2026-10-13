@@ -4565,7 +4565,7 @@ function mount(container, options = {}) {
       if (e.pointerType === "mouse") setHover(partAt(e.clientX, e.clientY));
       return;
     }
-    const dx = e.clientX - drag.x;
+    const dx = drag.x - e.clientX; // reversed (Kaif, 13 Oct)
     if (!drag.moved && Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(e.clientY - drag.y)) {
       drag.moved = true;
       stage.setPointerCapture(e.pointerId);
@@ -4575,7 +4575,7 @@ function mount(container, options = {}) {
     const now = performance.now();
     const k = 0.42;
     st.target = drag.base + dx * k;
-    st.vel = ((e.clientX - drag.lastX) * k) / Math.max(0.008, (now - drag.lastT) / 1000);
+    st.vel = ((drag.lastX - e.clientX) * k) / Math.max(0.008, (now - drag.lastT) / 1000);
     drag.lastX = e.clientX;
     drag.lastT = now;
     run();

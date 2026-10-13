@@ -4018,7 +4018,7 @@ export function mount(container, { theme = "dark", autoRotate = true, debug = fa
   const onMove = (e) => {
     if (!drag && e.pointerType === "mouse") hover(asmUnder(e.clientX, e.clientY));
     if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.lastX;
+    const dx = drag.lastX - e.clientX; // reversed: drag right turns it the other way (Kaif, 13 Oct)
     if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5) {
       drag.moved = true;
       try {

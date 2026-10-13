@@ -45,7 +45,7 @@ export function flipbookLayer(project, opts = {}) {
   a.className = "flip-a";
   b.className = "flip-b";
   el.setAttribute("role", "img");
-  el.setAttribute("aria-label", `The ${project.machineLabel || project.name}, turning slowly`);
+  el.setAttribute("aria-label", `The ${project.machineLabel || project.name}. Drag to turn it.`);
 
   let N = 72, step = 5, urls = [], loaded = [], shown = [-1, -1];
   let angle = 0, turning = false, raf = 0, last = 0, dead = false, speed = 9;
@@ -65,8 +65,8 @@ export function flipbookLayer(project, opts = {}) {
     let k0 = Math.floor(f) % N;
     let k1 = (k0 + 1) % N;
     let t = f - Math.floor(f);
-    // blend neighbouring frames only during the slow idle turn; standing still or dragging shows one crisp frame
-    if (!turning || drag?.active) {
+    // always one crisp frame: blending neighbours read as motion blur (Kaif, 13 Oct)
+    {
       if (t >= 0.5) k0 = k1;
       k1 = k0;
       t = 0;
@@ -110,11 +110,11 @@ export function flipbookLayer(project, opts = {}) {
       opts.onDrag?.(true);
     }
     const now = performance.now();
-    const inst = ((e.clientX - drag.lastX) * degPerPx()) / Math.max(0.008, (now - drag.lastT) / 1000);
+    const inst = ((drag.lastX - e.clientX) * degPerPx()) / Math.max(0.008, (now - drag.lastT) / 1000);
     drag.v = drag.v * 0.6 + inst * 0.4;
     drag.lastX = e.clientX;
     drag.lastT = now;
-    angle = mod(drag.a0 + dx * degPerPx(), 360);
+    angle = mod(drag.a0 - dx * degPerPx(), 360); // drag direction matches the live machines (reversed 13 Oct)
     paint();
   });
   const end = (e) => {
@@ -145,6 +145,7 @@ export function flipbookLayer(project, opts = {}) {
     .then(async ([m, avif]) => {
       if (dead) return;
       N = m.frames;
+      el.style.setProperty("--pad", m.pad || 0); // frames carry a margin round the drawing (glow, rim)
       step = m.step;
       opts.onInfo?.(m); // e.g. the drawing ratio, so the box has its final shape before anything mounts
       angle = m.start ?? 0;

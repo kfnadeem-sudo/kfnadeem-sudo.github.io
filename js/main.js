@@ -5,6 +5,10 @@ import { flipbookLayer } from "./flipbook.js";
 import { readAngle, jumpAngle } from "./angle.js";
 import { installFilters } from "./look.js";
 
+// Idle auto-turn is off: stepping through 5-degree frames either strobes or (blended) blurs.
+// Machines rest crisp at their best angle and turn when dragged or swiped.
+const IDLE_TURN = false;
+
 installFilters();
 
 const $ = (id) => document.getElementById(id);
@@ -268,7 +272,7 @@ function syncTurning() {
   PROJECTS.forEach((p, i) => {
     const s = slots.get(p.id);
     if (!s?.flip) return;
-    s.flip.setTurning(i === state.index && introDone && !state.moving && !state.exploded && !s.shown
+    s.flip.setTurning(IDLE_TURN && i === state.index && introDone && !state.moving && !state.exploded && !s.shown
       && !still() && !document.hidden && bandVisible);
   });
 }
@@ -851,9 +855,50 @@ band.addEventListener("anatomy:part", (e) => {
   if (e.detail?.id) openChapter(e.detail.id, { select: false, focus: false });
 });
 
+// ================================================================ zoom to the chosen part
+// While a chapter is open the machine glides in on its part: translate so the part sits in the middle of
+// the free stage, then scale. Fractions of the live layer's rect are used, so the current transform
+// (which scales that rect too) doesn't matter.
+const ZOOM = { desktop: 1.6, phone: 1.9 };
+let zoomTimer = 0;
+function zoomTo(id, delay = 0) {
+  clearTimeout(zoomTimer);
+  const p = PROJECTS[state.index];
+  const box = slots.get(p?.id)?.el?.querySelector?.(".machine-box") || document.querySelector(".slide.is-center .machine-box");
+  const clear = () => { band.removeAttribute("data-zoom"); box?.style.removeProperty("--zx"); box?.style.removeProperty("--zy"); box?.style.removeProperty("--zs"); };
+  if (!id || !box || still()) return clear();
+  zoomTimer = setTimeout(() => {
+    const h = liveH(state.index);
+    const layer = slots.get(p.id)?.live?.el;
+    const part = h?.parts?.()?.find((q) => q.id === id);
+    if (!layer || !part || state.chapter !== id) return;
+    const lr = layer.getBoundingClientRect();
+    if (!lr.width || !lr.height) return;
+    const z = isPhone.matches ? ZOOM.phone : ZOOM.desktop;
+    const base = parseFloat(getComputedStyle(box).getPropertyValue("--fit")) || 1;
+    const S = base * (band.hasAttribute("data-strip") ? (isPhone.matches ? 0.72 : 0.82) : 0.86) * z;
+    const dx = (part.x / lr.width - 0.5) * box.offsetWidth;
+    const dy = (part.y / lr.height - 0.5) * box.offsetHeight;
+    let zx = -S * dx, zy = -S * dy; // desktop: the panel shift already centres the free area
+    if (isPhone.matches) {
+      // phone: the sheet covers the lower part of the screen, so aim for the middle of what's left above it.
+      // The base rule lifts the box by 24% of its height; the box itself is centred in the band.
+      const br = band.getBoundingClientRect();
+      const sheetTop = Math.min(br.bottom, innerHeight - panel.offsetHeight);
+      const targetY = (Math.max(br.top, 0) + sheetTop) / 2 - (br.top + br.height / 2);
+      zy = targetY + 0.24 * box.offsetHeight - S * dy;
+    }
+    box.style.setProperty("--zs", z);
+    box.style.setProperty("--zx", Math.round(zx) + "px");
+    box.style.setProperty("--zy", Math.round(zy) + "px");
+    band.setAttribute("data-zoom", "");
+  }, delay);
+}
+
 // ================================================================ chapter panel
 async function openChapter(id, { select = true, focus = true, from = null } = {}) {
   const p = PROJECTS[state.index];
+  const settle = state.exploded ? 0 : 750; // let the parts finish flying out before measuring
   if (!state.exploded) await setExploded(true);
   if (!state.chapters.length) state.chapters = await loadChapters(p.machine);
   const list = state.chapters;
@@ -892,6 +937,7 @@ async function openChapter(id, { select = true, focus = true, from = null } = {}
   co.forceUntil = performance.now() + 900; // the stage is making room: keep the leaders glued
   if (focus) setTimeout(() => $("chapter-title").focus({ preventScroll: true }), wasOpen ? 140 : 60);
   wakeCallouts();
+  zoomTo(id, settle);
 }
 
 const ARROW = {
@@ -913,6 +959,7 @@ function closeChapter({ restore = true, deselect = true } = {}) {
   state.chapter = null;
   panel.hidden = true;
   band.removeAttribute("data-panel");
+  zoomTo(null);
   if (deselect) liveH(state.index)?.select(null);
   markCurrent();
   co.forceUntil = performance.now() + 900;

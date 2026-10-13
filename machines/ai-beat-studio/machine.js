@@ -3900,7 +3900,7 @@ export function mount(container, { theme = "dark", autoRotate = true, debug = fa
       }
     }
     if (!drag || event.pointerId !== drag.id) return;
-    const dx = event.clientX - drag.x;
+    const dx = drag.x - event.clientX; // reversed (Kaif, 13 Oct)
     if (!drag.moved && Math.abs(dx) > 5 && Math.abs(dx) > Math.abs(event.clientY - drag.y)) {
       drag.moved = true;
       stage.setPointerCapture(event.pointerId);
@@ -3912,7 +3912,7 @@ export function mount(container, { theme = "dark", autoRotate = true, debug = fa
     angle = drag.a + dx * degPerPx;
     const now = performance.now();
     const dtm = Math.max(1, now - drag.lastT);
-    drag.v = drag.v * 0.6 + (((event.clientX - drag.lastX) * degPerPx) / dtm) * 1000 * 0.4;
+    drag.v = drag.v * 0.6 + (((drag.lastX - event.clientX) * degPerPx) / dtm) * 1000 * 0.4;
     drag.lastX = event.clientX;
     drag.lastT = now;
     holdUntil = now + 2500;
