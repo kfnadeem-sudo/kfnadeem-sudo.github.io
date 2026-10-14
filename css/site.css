@@ -150,6 +150,8 @@ html.intro body > * { animation: page-in .6s var(--ease) both; }
    The glow lives in the pre-rendered flipbook frames instead, where it costs nothing. */
 .layer-live > * { filter: url(#bp); }
 .slide[data-tone="soft"] .layer-live > * { filter: url(#bp-soft); }
+/* desk-button: its light, wires and walkthrough panel sit in a sibling layer that keeps its real colours */
+.layer-live > .dbn-fx { filter: none; }
 .still { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .still img { width: 100%; height: 100%; object-fit: contain; filter: url(#bp); mix-blend-mode: lighten; }
 .still-outline { width: 50%; height: auto; color: var(--ctl); }

@@ -1,0 +1,37 @@
+{
+  "reactor": {
+    "title": "The reactor drum",
+    "body": "The heart of the button is a 60 mm arcade button inside a tilted drum. Holding it closes a microswitch, and the Pico tells the PC it is a USB keyboard holding Right Alt, the key my voice app already listens for, so no driver or app change is needed to talk. Behind the frosted glow disc sits a ring of 16 NeoPixel LEDs, with one more in the button itself, showing the app's state colours: listening, working, speaking, done.",
+    "tech": ["60 mm arcade button", "NeoPixel ring (16)", "USB HID keyboard", "Fusion Python API"]
+  },
+  "cage": {
+    "title": "The armillary cage",
+    "body": "Five curved ribs rise from the back and sides and meet in a crown, leaving the front open for your hand. Each rib is a straight run into a quarter circle, generated in Fusion by a Python script, printed flat in two halves with a lap joint, and wrapped with two hand-wound copper bobbins. The back rib carries the beacon's four wires in a groove, so no wire shows.",
+    "tech": ["Fusion 360 scripting", "FDM printing", "Parametric design"]
+  },
+  "beacon": {
+    "title": "The beacon",
+    "body": "One more LED sits on top of the crown, first in the chain of 18. It shows the state colour dimmed, beats slowly while Claude is working, and when the app isn't running it gives a short soft blip every three seconds, so you can tell at a glance whether the button is connected.",
+    "tech": ["NeoPixel (5 mm)", "Serial heartbeat", "12 s timeout"]
+  },
+  "controls": {
+    "title": "Stop, mute and sound",
+    "body": "A small metal stud does three jobs: tap to stop the reply, hold for a new chat, double-tap to turn the LED ring into a gauge of weekly usage or chat context. A toggle under a red flip-up missile cover mutes the voice and lights one red LED as a reminder. A tiny piezo gives a quiet click on press and release and a rising chirp at power-up.",
+    "tech": ["Tap, hold, double-tap", "MTS-102 toggle", "PWM piezo", "Text protocol over USB"]
+  },
+  "volume": {
+    "title": "The volume collar",
+    "body": "The knurled gold collar round the base turns freely. Inside it, a 174-tooth ring gear spins a 24-tooth pinion on a rotary encoder 7.25 times faster, so one turn of the collar gives 174 fine clicks. Every three clicks the button sends one volume step to the app; with the app closed it sends ordinary laptop volume keys instead.",
+    "tech": ["PEC11R encoder", "Printed gears", "CircuitPython rotaryio"]
+  },
+  "brain": {
+    "title": "The brain",
+    "body": "A Raspberry Pi Pico 2 W on a Perma-Proto board runs CircuitPython. It reads the switches, redraws all 18 LEDs 50 times a second through a 74AHCT125 level shifter (3.3 V to 5 V), and talks to the app over a second USB serial port in short text lines. Software brightness caps keep the worst case at about 387 mA, inside what one USB port promises.",
+    "tech": ["Raspberry Pi Pico 2 W", "CircuitPython", "74AHCT125", "Wokwi simulation"]
+  },
+  "base": {
+    "title": "Designed to be built",
+    "body": "37 printed parts, all FDM-friendly with a flat face to print on, joined with M3 heat-set inserts only. The whole assembly was built by a Python script in Fusion in stages, checked for clashes pair by pair (526 pairs, 0 clashes), and comes with a printable test coupon, a 27-wire wiring guide and a nine-step assembly guide. About 300 g of steel washers in the base stop it sliding when you slap it.",
+    "tech": ["Fusion 360", "Python", "Interference checks", "Bambu P1S"]
+  }
+}

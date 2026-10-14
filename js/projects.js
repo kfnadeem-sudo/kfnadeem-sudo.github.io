@@ -104,6 +104,22 @@ export const PROJECTS = [
     explodeAngle: 160,
   },
   {
+    id: "desk-button",
+    machine: "desk-button",
+    aspect: 760 / 820,
+    name: "Armillary push-to-talk button",
+    line: "A physical push-to-talk button for my own voice assistant app.",
+    machineLabel: "glowing push-to-talk button in a gold armillary cage",
+    outcome: "Fully designed in CAD, firmware written and simulated; the build is next",
+    tech: ["Fusion 360 (Python API)", "CircuitPython", "Raspberry Pi Pico 2 W", "NeoPixels", "USB HID + serial"],
+    credits: "Solo project",
+    links: [],
+    still: "assembled-light.png",
+    exploded: "exploded-light.png",
+    extras: [{ label: "How it works", call: "walkthrough" }, { label: "Build order", call: "buildOrder" }, { label: "X-ray", call: "xray" }],
+    explodeAngle: 95, // side-on, so the drum visibly slides out of the open front
+  },
+  {
     id: "meme-obby",
     machine: "meme-obby",
     name: "Meme Obby",
