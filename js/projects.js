@@ -120,6 +120,21 @@ export const PROJECTS = [
     explodeAngle: 95, // side-on, so the drum visibly slides out of the open front
   },
   {
+    id: "room-planner",
+    machine: "room-planner",
+    aspect: 800 / 760,
+    name: "Room Planner",
+    line: "Plan a real room to the centimetre before buying a single thing.",
+    machineLabel: "architect's scale model of a studio room on a turntable",
+    outcome: "Used to plan and order a full room makeover · runs offline, nothing uploaded",
+    tech: ["JavaScript", "three.js", "Canvas 2D", "Playwright", "Blender"],
+    credits: "Solo project, built with Claude",
+    links: [],
+    still: "assembled-light.png",
+    exploded: "exploded-light.png",
+    explodeAngle: 150,
+  },
+  {
     id: "meme-obby",
     machine: "meme-obby",
     name: "Meme Obby",

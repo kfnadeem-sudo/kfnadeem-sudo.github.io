@@ -1,0 +1,37 @@
+{
+  "room": {
+    "title": "Measured room - the shell",
+    "body": "Each room is one file of measured walls, doors, windows, sockets and radiators. Rooms don't have to be rectangles: chimney breasts and alcoves come from a wall list. When the measurements don't quite close, the error is shared out so the corners stay square.",
+    "tech": ["JavaScript", "JSON room files", "Geometry solver"]
+  },
+  "layout": {
+    "title": "Layout - drag, snap, compare",
+    "body": "Furniture is dragged onto the 2D plan, snaps to walls and turns in 15 degree steps, always at its true size. Layouts are saved as versions you can compare side by side. Design presets refresh from the room file until someone edits them.",
+    "tech": ["Canvas 2D", "Local storage", "Versioned layouts"]
+  },
+  "catalogue": {
+    "title": "Catalogue - real products",
+    "body": "Every piece is a real product with its photo, dimensions, price and link, collected into research files. One script turns those files into the catalogue the app reads, so adding a new product is a data change, not a code change.",
+    "tech": ["Node build script", "Product research"]
+  },
+  "walkway": {
+    "title": "Walkway check - does it actually fit?",
+    "body": "Every change re-runs the checks: a widest-path search from the door finds the narrowest walkway, and warns below 70 cm. It also flags pieces that hit each other or a door's swing, powered items with no socket in reach, and anything blocking a window. A design can keep a warning on purpose, but only with a written reason.",
+    "tech": ["Path search", "Rule engine", "Playwright tests"]
+  },
+  "views": {
+    "title": "2D plan + 3D view",
+    "body": "The same layout is drawn as a blueprint and as a 3D room you can orbit with a mouse or with fingers on a touchscreen. Fullscreen and four colour schemes are built in, and a scene can be exported to Blender for photo-quality renders.",
+    "tech": ["three.js", "Touch gestures", "Blender / Cycles"]
+  },
+  "modes": {
+    "title": "View / Edit - safe by default",
+    "body": "A layout always opens in View, where nothing can be dragged, turned or deleted by accident. Turning the key to Edit unlocks changes, and the locked original of each room can never be overwritten.",
+    "tech": ["App state", "Undo-safe design"]
+  },
+  "order": {
+    "title": "To-buy list - straight to a basket",
+    "body": "Each design keeps a live to-buy total of the pieces that still need buying. The list was matched item by item against a real order, so the plan and the shopping basket agree.",
+    "tech": ["Shopping list", "Price totals"]
+  }
+}
