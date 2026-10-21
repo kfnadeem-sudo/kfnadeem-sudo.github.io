@@ -1,0 +1,63 @@
+{
+  "map": {
+    "title": "Real roads",
+    "body": "Free drive runs on the real streets of Chadderton, Oldham and Ashton-under-Lyne, joined into one map from OpenStreetMap and laid over real terrain heights, so the hills are where they really are. Roundabouts, lane arrows, speed limits, crossings, bus stops and parked cars come from the map data, and traffic, buses and cyclists give way to each other. A mock test plans a route from the Chadderton test centre with sat-nav directions, just like the real drive.",
+    "tech": [
+      "OpenStreetMap / Overpass",
+      "Terrain tiles",
+      "three.js",
+      "A* routing",
+      "Streamed map tiles"
+    ]
+  },
+  "controls": {
+    "title": "Wheel, pedals and gears",
+    "body": "The sim is driven with a Logitech G920 wheel and pedals and an H-pattern shifter, so practice uses a real clutch and real gears, not arrow keys. You can stall and you can coast, and both get marked. A keyboard still works for a quick go.",
+    "tech": [
+      "Gamepad API",
+      "Logitech G920",
+      "H-shifter",
+      "Manual gearbox model"
+    ]
+  },
+  "laptop": {
+    "title": "The app",
+    "body": "A local web app made for one learner on a two-screen laptop: the top screen is the drive, the lower screen is a dashboard with the next thing to practise and how the last runs went. Short drills cover roundabouts, junctions, crossings and moving off, each ending with plain feedback. Specified by Kaif and built with Claude.",
+    "tech": [
+      "JavaScript",
+      "Local web server",
+      "Second-screen dashboard",
+      "Drill runs"
+    ]
+  },
+  "headset": {
+    "title": "Looking round in VR",
+    "body": "With a Meta Quest 3 the same sim opens in the headset, so checks over the shoulder and into mirrors are real head turns. The laptop relays the wheel and pedal inputs to the headset over the home network.",
+    "tech": [
+      "WebXR",
+      "Meta Quest 3",
+      "HTTPS on the LAN",
+      "Input relay"
+    ]
+  },
+  "examiner": {
+    "title": "The examiner's marking",
+    "body": "Every drive is marked like the real test: each mistake goes down as a driving fault, serious or dangerous against the same categories as the examiner's sheet, at roundabouts, turns, emerging and lane changes. Mock tests add the tell me / show me questions and an emergency stop, and a trend chart shows which faults are going away.",
+    "tech": [
+      "DL25-style marking",
+      "Fault trend chart",
+      "Mock tests",
+      "Tell me / show me"
+    ]
+  },
+  "theory": {
+    "title": "The question bank",
+    "body": "279 questions on what the test asks about, each with the reason the right answer is right, why each wrong one is wrong, and the Highway Code rule behind it. Many come with a top-down diagram of the junction or roundabout, and quick-fire rounds pick out the weak topics.",
+    "tech": [
+      "279 questions",
+      "Highway Code refs",
+      "SVG scene diagrams",
+      "Quick-fire mode"
+    ]
+  }
+}
