@@ -1,0 +1,14 @@
+[
+ {
+  "relation": [
+   "delegate_permission/common.handle_all_urls"
+  ],
+  "target": {
+   "namespace": "android_app",
+   "package_name": "io.github.kfnadeem_sudo.testready",
+   "sha256_cert_fingerprints": [
+    "45:08:2A:1D:F8:63:DB:CE:D2:A7:DD:57:DA:01:7A:35:ED:D4:82:CF:46:99:95:88:DF:ED:7F:3F:02:7F:8C:4C"
+   ]
+  }
+ }
+]
