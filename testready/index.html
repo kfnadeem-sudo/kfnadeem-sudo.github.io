@@ -819,7 +819,7 @@
     throttle: ["KeyW", "ArrowUp"], brake: ["KeyS", "ArrowDown"], left: ["KeyA", "ArrowLeft"], right: ["KeyD", "ArrowRight"],
     clutch: ["Space"], lookL: ["KeyZ"], lookR: ["KeyC"], mirror: ["KeyX"], horn: ["KeyH"], lookBack: ["KeyV"]
   };
-  const PRESS = { KeyQ: "indL", KeyE: "indR", KeyB: "handbrake", KeyI: "ignition", Digit1: "g1", Digit2: "g2", Digit3: "g3", Digit4: "g4", Digit5: "g5", Digit6: "g6", KeyR: "gR", KeyN: "gN", Digit0: "gN", KeyK: "lights", KeyJ: "wipers", Escape: "pause", KeyP: "pause", KeyT: "pip", KeyL: "shoulder", KeyF: "footprint", KeyO: "door", Digit7: "ans1", Digit8: "ans2", Digit9: "ans3" };
+  const PRESS = { KeyQ: "indL", KeyE: "indR", KeyB: "handbrake", KeyI: "ignition", Digit1: "g1", Digit2: "g2", Digit3: "g3", Digit4: "g4", Digit5: "g5", Digit6: "g6", KeyR: "gR", KeyN: "gN", Digit0: "gN", KeyK: "lights", KeyJ: "wipers", Escape: "pause", KeyP: "pause", KeyT: "pip", KeyL: "shoulder", KeyF: "footprint", KeyO: "door", KeyM: "screen", Digit7: "ans1", Digit8: "ans2", Digit9: "ans3" };
   const pressQ = [];
   let lastKeyT = 0;
   function onDown(e) {
@@ -870,7 +870,7 @@
       if (typeof spec === "object") { const d = [[-1, "up"], [-.428, "right"], [.142, "down"], [.714, "left"]].find(([v]) => Math.abs(v - spec.v) < .08); return d ? "D-pad " + d[1] : "D-pad (" + spec.v.toFixed(2) + ")"; }
       return ({ 0: "A", 1: "B", 2: "X", 3: "Y", 4: "Right paddle", 5: "Left paddle", 6: "View button", 7: "Menu button", 8: "RSB (right hub button)", 9: "LSB (left hub button)", 10: "Xbox button" })[spec] || "Button " + spec;
     },
-    ACTIONS: [["indL", "Left indicator"], ["indR", "Right indicator"], ["mirror", "Mirror check"], ["lookL", "Look left (hold)"], ["lookR", "Look right (hold)"], ["lookBack", "Look back for reversing (hold)"], ["handbrake", "Handbrake on / off"], ["ignition", "Start engine"], ["horn", "Horn"], ["pause", "Pause"], ["pip", "Bird's-eye / top-down view"], ["footprint", "Footprint paths on / off"], ["door", "Open the door to check the kerb"], ["shoulder", "Shoulder lines"], ["lights", "Headlights on / off"], ["wipers", "Wipers on / off"]],
+    ACTIONS: [["indL", "Left indicator"], ["indR", "Right indicator"], ["mirror", "Mirror check"], ["lookL", "Look left (hold)"], ["lookR", "Look right (hold)"], ["lookBack", "Look back for reversing (hold)"], ["handbrake", "Handbrake on / off"], ["ignition", "Start engine"], ["horn", "Horn"], ["pause", "Pause"], ["pip", "Bird's-eye / top-down view"], ["footprint", "Footprint paths on / off"], ["door", "Open the door to check the kerb"], ["shoulder", "Shoulder lines"], ["lights", "Headlights on / off"], ["wipers", "Wipers on / off"], ["screen", "Dash screen: auto / camera / 360° / map / off"]],
     g920Buttons: G920_BUTTONS,
     get source() { return lastSource; },
     // Called once per frame. Returns analog controls + a list of button presses this frame.
@@ -1816,7 +1816,7 @@
 (function () {
   const W = () => window.SimWorld, T = () => window.THREE;
   // keyboard key -> the same control on the wheel, for hints
-  const KEY_ACT = { K: "lights", J: "wipers", X: "mirror", Q: "indL", E: "indR", Z: "lookL", C: "lookR", V: "lookBack", B: "handbrake", I: "ignition", H: "horn", T: "pip", L: "shoulder", F: "footprint", O: "door" };
+  const KEY_ACT = { K: "lights", J: "wipers", X: "mirror", Q: "indL", E: "indR", Z: "lookL", C: "lookR", V: "lookBack", B: "handbrake", I: "ignition", H: "horn", T: "pip", L: "shoulder", F: "footprint", O: "door", M: "screen" };
   function wheelWords(msg) {
     const I = window.SimInput, lab = k => { const a = KEY_ACT[k]; if (a === "indL") return "left paddle"; if (a === "indR") return "right paddle"; return a && I.map.buttons && I.map.buttons[a] != null ? I.label(I.map.buttons[a]) : null; };
     return msg.replace(/\(hold ([A-Z]), then ([A-Z]) and ([A-Z])\)/g, (m, a, b, c) => `(hold ${lab(a) || a}, then ${lab(b) || b} and ${lab(c) || c})`)
@@ -1911,6 +1911,56 @@
     return { wheel };
   }
 
+  // ───────── dash screen, top middle of the dash like a modern hatchback: reversing camera with guide lines in reverse,
+  // a 360° view from above when slow, a map-like view when driving. Drawn into a texture, so it is in the headset too.
+  const SCR_W = 384, SCR_H = 240, RB = 2.2, PN = 26;   // RB: rear bumper, car-local; PN: points along each path line
+  const SCR_MODES = ["auto", "cam", "360", "map", "off"], SCR_NAME = { auto: "Auto", cam: "Reversing camera", "360": "360° view", map: "Map", off: "Off" };
+  function buildDashScreen(rig) {
+    const t = T(), g = new t.Group(); g.position.set(-.02, 1.04, -.8); g.rotation.order = "YXZ"; g.rotation.set(-.3, .22, 0); rig.add(g);
+    const dark = new t.MeshStandardMaterial({ color: 0x0b0c0e, roughness: .55, metalness: .25 });
+    g.add(new t.Mesh(new t.BoxGeometry(.27, .176, .022), dark));
+    const stalk = new t.Mesh(new t.BoxGeometry(.07, .08, .03), dark); stalk.position.set(0, -.1, -.012); g.add(stalk);
+    const rt = new t.WebGLRenderTarget(SCR_W, SCR_H, { encoding: t.sRGBEncoding }); rt.texture.wrapS = t.RepeatWrapping;
+    // glass and label on layer 1: no camera that draws into the screen can see the screen itself
+    const glass = new t.Mesh(new t.PlaneGeometry(.25, .156), new t.MeshBasicMaterial({ map: rt.texture })); glass.position.z = .0115; glass.layers.set(1); g.add(glass);
+    const lc = document.createElement("canvas"); lc.width = 512; lc.height = 40; const lt = new t.CanvasTexture(lc); lt.encoding = t.sRGBEncoding;
+    const label = new t.Mesh(new t.PlaneGeometry(.25, .0195), new t.MeshBasicMaterial({ map: lt, transparent: true })); label.position.set(0, .078 - .00975, .012); label.layers.set(1); g.add(label);
+    // the camera above the number plate: wide, tilted down at the road, and mirrored like every real one
+    const cam = new t.PerspectiveCamera(70, SCR_W / SCR_H, .05, 80); cam.position.set(0, .95, 2.14); cam.rotation.order = "YXZ"; cam.rotation.set(-.55, Math.PI, 0); cam.layers.enable(3); rig.add(cam);
+    const top = new t.OrthographicCamera(-1, 1, 1, -1, 1, 200);
+    // guide lines on the road behind, on layer 3 so only the reversing camera sees them
+    const guides = new t.Group(); guides.visible = false; rig.add(guides);
+    const flat = (w, d, col, x, z) => { const m = new t.Mesh(new t.PlaneGeometry(w, d), new t.MeshBasicMaterial({ color: col, transparent: true, opacity: .85, depthTest: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, .03, z); m.layers.set(3); m.renderOrder = 5; guides.add(m); };
+    // fixed distance marks: red 0.5 m, amber 1 m, green 2 m behind the bumper, with the car's width either side
+    [[0, .5, 0xff3b30], [.5, 1, 0xffcc00], [1, 2, 0x34c759]].forEach(([a, b, col]) => { for (const sx of [-1, 1]) { flat(.035, b - a, col, sx * .89, RB + (a + b) / 2); flat(.3, .035, col, sx * .755, RB + b); } });
+    // where the back corners will go with the wheel where it is now (yellow, bends as you steer)
+    const path = [0, 1].map(() => {
+      const geo = new t.BufferGeometry(), idx = []; geo.setAttribute("position", new t.BufferAttribute(new Float32Array(PN * 6), 3));
+      for (let i = 0; i < PN - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } geo.setIndex(idx);
+      const m = new t.Mesh(geo, new t.MeshBasicMaterial({ color: 0xffd60a, transparent: true, opacity: .9, depthTest: false, side: t.DoubleSide })); m.layers.set(3); m.renderOrder = 6; m.frustumCulled = false; guides.add(m); return m;
+    });
+    return { rt, glass, lc, lt, cam, top, guides, path, mode: null };
+  }
+  // reverse 3.5 m about the rear axle (the same model as the car) and trace the two back corners, car-local
+  function dashPath(D, steer) {
+    const WB = window.SimCar.WB, ds = 3.5 / (PN - 1); let x = 0, z = 0, yaw = 0;
+    const arr = D.path.map(m => m.geometry.attributes.position.array);
+    for (let i = 0; i < PN; i++) {
+      const d = { x: Math.sin(yaw), z: -Math.cos(yaw) }, r = { x: Math.cos(yaw), z: Math.sin(yaw) };
+      [-1, 1].forEach((sx, k) => { const cx = x + r.x * sx * .89 - d.x * RB, cz = z + r.z * sx * .89 - d.z * RB, w = .028; arr[k].set([cx - r.x * w, .03, cz - r.z * w, cx + r.x * w, .03, cz + r.z * w], i * 6); });
+      const rx = x - d.x * WB / 2, rz = z - d.z * WB / 2; yaw += -ds * Math.tan(steer) / WB;
+      const nx = rx - Math.sin(yaw) * ds, nz = rz + Math.cos(yaw) * ds; x = nx + Math.sin(yaw) * WB / 2; z = nz - Math.cos(yaw) * WB / 2;
+    }
+    D.path.forEach(m => { m.geometry.attributes.position.needsUpdate = true; });
+  }
+  function dashLabel(D, m) {
+    const c = D.lc.getContext("2d"); c.clearRect(0, 0, 512, 40); c.fillStyle = "rgba(0,0,0,.55)"; c.fillRect(0, 0, 512, 40);
+    c.font = "600 24px system-ui,sans-serif"; c.fillStyle = "#fff"; c.textBaseline = "middle";
+    c.fillText(m === "cam" ? "REAR CAMERA" : m === "360" ? "360° VIEW" : "MAP", 14, 21);
+    c.textAlign = "right"; c.fillStyle = m === "cam" ? "#ffcc00" : "rgba(255,255,255,.7)"; c.fillText(m === "cam" ? "Check all around too" : "M: change screen", 498, 21);
+    D.lt.needsUpdate = true;
+  }
+
   const VRx = () => window.SimVR || { page: false, presenting: false, enter() { }, exit() { }, prepare() { }, drawPanels() { }, drawCard() { } };
   // ───────── the simulator session
   class Session {
@@ -1973,6 +2023,7 @@
       this.mcam.l.position.set(-.95, 1.1, -.86); this.mcam.l.rotation.y = Math.PI - .36;
       Object.values(this.mcam).forEach(c => this.rig.add(c));
       this.cock = buildCockpit(this.rig, { c: flip(this.mr.c.texture), r: flip(this.mr.r.texture), l: flip(this.mr.l.texture) });
+      this.dash = buildDashScreen(this.rig);
       this.beam = new t.SpotLight(0xfff1d6, 0, 75, .55, .55, 1.1); this.beam.position.set(0, .8, -2.3); this.beam.target.position.set(0, -.6, -26); this.rig.add(this.beam); this.rig.add(this.beam.target);
       this.canvas.insertAdjacentHTML("afterend", '<div class="sim-wet" hidden></div>'); this.wet = this.root.querySelector(".sim-wet");
       this.body = window.SimTraffic.carMesh(0x2c63d8); this.body.visible = false; this.rig.add(this.body);   // for mirrors of other cars? (hidden from own camera)
@@ -2082,7 +2133,7 @@
         <div class="sim-grid"><span><kbd>W</kbd> gas (Shift+W full)</span><span><kbd>S</kbd> brake</span><span><kbd>A</kbd><kbd>D</kbd> steer</span><span><kbd>Space</kbd> clutch</span>
         <span><kbd>1</kbd>–<kbd>6</kbd> <kbd>R</kbd> <kbd>N</kbd> gears</span><span><kbd>Q</kbd><kbd>E</kbd> indicators</span><span><kbd>X</kbd> mirror check</span><span><kbd>Z</kbd><kbd>C</kbd> look left / right</span>
         <span><kbd>B</kbd> handbrake</span><span><kbd>I</kbd> start engine</span><span><kbd>H</kbd> horn</span><span><kbd>Esc</kbd> pause</span>
-        <span><kbd>V</kbd> look back</span><span><kbd>T</kbd> bird's-eye / top-down</span><span><kbd>F</kbd> footprint paths</span><span><kbd>O</kbd> open door, check kerb</span><span><kbd>L</kbd> shoulder lines</span><span><kbd>K</kbd> headlights</span><span><kbd>J</kbd> wipers</span></div>`}
+        <span><kbd>V</kbd> look back</span><span><kbd>T</kbd> bird's-eye / top-down</span><span><kbd>F</kbd> footprint paths</span><span><kbd>O</kbd> open door, check kerb</span><span><kbd>L</kbd> shoulder lines</span><span><kbd>K</kbd> headlights</span><span><kbd>J</kbd> wipers</span><span><kbd>M</kbd> dash screen: camera / 360° / map</span></div>`}
         ${wheel ? `<p class="sim-sub">Wheel buttons follow your setup in the Drive tab.</p>` : `<p class="sim-sub">Keyboard clutch assist is ${window.SimInput.opts.autoClutchKeys ? "on: the clutch eases out for you" : "off: hold Space for the clutch"}.</p>`}</div>`;
       return open ? html : `<details class="sim-keysd"><summary>Controls</summary>${html}</details>`;
     }
@@ -2132,6 +2183,26 @@
       return rows;
     }
     flash(msg, kind = "info") { this.msgs.push({ msg, t: this.t, kind }); }
+    // the dash screen: picks what to show, then redraws it every other frame (the map every third; less in the headset)
+    drawDash(R, every) {
+      const D = this.dash, car = this.car; if (!D) return;
+      const set = window.SimInput.opts.dashScreen || "auto";
+      const m = set === "auto" ? (car.gear === -1 ? "cam" : car.mph < 8 ? "360" : "map") : set;
+      if (m !== D.mode) { D.mode = m; D.glass.visible = m !== "off"; D.rt.texture.repeat.x = m === "cam" ? -1 : 1; if (m !== "off") dashLabel(D, m); this.dashFc = -1; }
+      if (m === "off") return;
+      this.dashFc = (this.dashFc ?? -1) + 1; if (this.dashFc % ((m === "map" ? 3 : 2) * every)) return;
+      R.setRenderTarget(D.rt);
+      if (m === "cam") {   // the drill's own footprint lines would cover the camera's guide lines
+        const help = this._ctx && this._ctx.data.vis && this._ctx.data.vis.g, was = help && help.visible; if (help) help.visible = false;
+        dashPath(D, car.steer || 0); D.guides.visible = true; R.render(this.scene, D.cam); D.guides.visible = false; if (help) help.visible = was;
+      }
+      else {
+        const d = car.dir, half = m === "360" ? 4.4 : 26, ahead = m === "360" ? 0 : 9, cx = car.x + d.x * ahead, cz = car.z + d.z * ahead, y = (this.heightY || 0) + 60;
+        D.top.position.set(cx, y, cz); D.top.up.set(d.x, 0, d.z); D.top.lookAt(cx, 0, cz);
+        D.top.left = -half * SCR_W / SCR_H; D.top.right = half * SCR_W / SCR_H; D.top.top = half; D.top.bottom = -half; D.top.updateProjectionMatrix();
+        this.body.visible = true; R.render(this.scene, D.top); this.body.visible = false;
+      }
+    }
     fault(cat, sev, msg, key) {
       key = key || cat + sev;
       const same = this.faults.filter(f => f.key === key && this.t - f.t < 4); if (same.length) return;
@@ -2159,6 +2230,7 @@
         if (p === "lights") { car.lights = !car.lights; this.sound.tick(true); } if (p === "wipers") { car.wipers = !car.wipers; this.sound.tick(true); }
         if (p === "pip") { this.view = ((this.view || 0) + 1) % 3; this.pipOn = this.view === 0; }   // bird's-eye corner -> full-screen top-down -> off
         if (p === "footprint") this._ctx.data.fpOn = !this._ctx.data.fpOn;
+        if (p === "screen") { const o = I.opts, n = SCR_MODES[(SCR_MODES.indexOf(o.dashScreen || "auto") + 1) % SCR_MODES.length]; o.dashScreen = n; I.saveOpts(); this.flash("Dash screen: " + SCR_NAME[n] + (n === "auto" ? " (camera in reverse, 360° when slow, map when driving)" : ""), "info"); }
         // open the door and look down at the kerb: left side, then right, then closed (only when stopped)
         if (p === "door") { if (car.mph < 1.5) this.door = this.door === "L" ? "R" : this.door === "R" ? null : "L"; else this.flash("Stop first, then open the door to look at the kerb.", "info"); } if (p === "shoulder") { this.shoulderOn = !this.shoulderOn; if (this.shoulderLines) this.shoulderLines.visible = this.shoulderOn; }
       }
@@ -2275,6 +2347,7 @@
       // in the headset, a quality guard keeps frames smooth: mirrors refresh less often, then the view shortens
       const q = inVR ? this.vrQuality() : 0, every = [1, 3, 5, 8][q];
       for (const k of ["c", "r", "l"]) { if (k !== "c" && (this.fc + (k === "r" ? 0 : 1)) % 2) continue; if (every > 1 && (this.fc + (k === "c" ? 0 : k === "r" ? 1 : 2)) % every) continue; R.setRenderTarget(this.mr[k]); R.render(this.scene, this.mcam[k]); }
+      this.drawDash(R, every);
       R.xr.enabled = xrWas;
       R.setRenderTarget(null);
       if (this.door && car.mph > 2) this.door = null;   // moving off shuts it
@@ -2550,9 +2623,9 @@
       this.running = false; cancelAnimationFrame(this.raf); window.removeEventListener("resize", this.resize);
       window.SimInput.active = false; window.SimInput.clear(); this.sound.stop();
       if (keepVR) {   // free this drill's meshes from the headset's memory; the renderer and VR carry on
-        try { this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); Object.values(this.mr).forEach(r => r.dispose()); this.renderer.renderLists.dispose(); } catch (e) { }
+        try { this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); }); Object.values(this.mr).forEach(r => r.dispose()); if (this.dash) this.dash.rt.dispose(); this.renderer.renderLists.dispose(); } catch (e) { }
         document.body.appendChild(Object.assign(this.canvas, { hidden: true }));
-      } else try { this.renderer.dispose(); Object.values(this.mr).forEach(r => r.dispose()); } catch (e) { }
+      } else try { this.renderer.dispose(); Object.values(this.mr).forEach(r => r.dispose()); if (this.dash) this.dash.rt.dispose(); } catch (e) { }
       this.root.remove(); if (Sim.current === this) Sim.current = null;
     }
   }
