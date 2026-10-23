@@ -1424,7 +1424,7 @@
       <div id="vrWheel" style="margin-top:26px;font-size:18px;opacity:.85"></div>
       ${window.QUEST_APP ? `<div id="vrPair" style="margin-top:22px;font-size:16px;opacity:.9"></div>` : ""}
       ${window.QUEST_APP ? "" : `<button id="vrFull" style="margin-top:34px;font:600 15px system-ui;background:none;border:0;color:#8fa6c2;text-decoration:underline;cursor:pointer">Use the full app instead</button>`}
-      <div style="margin-top:30px;font-size:12px;opacity:.5">Real-roads map data © OpenStreetMap contributors</div></div>`;
+      <div style="margin-top:30px;font-size:12px;opacity:.5">Real-roads map data © OpenStreetMap contributors · Contains OS data © Crown copyright and database right · LIDAR © Environment Agency</div></div>`;
     document.body.appendChild(el);
     const wheelLine = () => {
       const r = window.SimInput && window.SimInput.remote, live = r && r.wheel && performance.now() - r.at < 1500, w = document.getElementById("vrWheel");   // the G920 itself, not just the laptop
@@ -1930,7 +1930,7 @@
     add(box(.05, .26, .5), hard, .14, .44, -.9);   // transmission tunnel side, driver's footwell
     // the binnacle: a hood over the three dials
     // the binnacle: a visor arching over the top of the three dials (axis across the car, open towards you)
-    const hood = add(new t.CylinderGeometry(.2, .2, .44, 28, 1, true, .6, Math.PI - .6), soft.clone(), .37, 1.04, -.9, 0, 0, Math.PI / 2);
+    const hood = add(new t.CylinderGeometry(.11, .11, .4, 24, 1, true, .9, Math.PI - .9), soft.clone(), .37, 1.03, -.93, 0, 0, Math.PI / 2);
     hood.material.side = t.DoubleSide; hood.scale.set(1, 1, .75);
     // the cluster face: a live canvas texture, unlit so it reads like backlit dials
     const face = new t.Group(); face.position.set(.37, 1.055, -.885); face.rotation.x = -.22; g.add(face);
@@ -2263,7 +2263,8 @@
       window.SimInput.active = true; window.SimInput.clear();
       this.prevBlink = false; this.last = performance.now(); this.running = true; this.paused = false;
       this.intro();
-      const loop = now => { if (!this.running) return; const dt = Math.min(.05, (now - this.last) / 1000); this.last = now; if (!this.paused && !this.ended) this.frame(dt); else this.padNav(); this.draw(); if (!this.xrLoop) this.raf = requestAnimationFrame(loop); };
+      const loop = now => { if (!this.running) return; const dt = Math.max(0, Math.min(.05, (now - this.last) / 1000));   // never backwards: after the page was in the background the browser can hand over an old timestamp
+      this.last = now; if (!this.paused && !this.ended) this.frame(dt); else this.padNav(); this.draw(); if (!this.xrLoop) this.raf = requestAnimationFrame(loop); };
       // the headset needs three's own loop (it runs on the headset's frames); everywhere else a normal animation frame
       if (VRx().page) { this.xrLoop = true; R.setAnimationLoop(t2 => loop(t2 || performance.now())); }
       else this.raf = requestAnimationFrame(loop);
@@ -2466,7 +2467,7 @@
       this.hold.b = c.lookBack ? (this.hold.b || 0) + dt : 0; if (this.hold.b > .3) this.obs.back = this.t;
       car.grip = this.cond === "rain" ? .7 : 1;
       if (this.world.height) {   // hills: the climb under the car pushes it back (or on), and tilts the view
-        const dir = car.dir, hF = this.world.height(car.x + dir.x * 1.3, car.z + dir.z * 1.3), hB = this.world.height(car.x - dir.x * 1.3, car.z - dir.z * 1.3);
+        const dir = car.dir, ref = this.heightY, hF = this.world.height(car.x + dir.x * 1.3, car.z + dir.z * 1.3, ref), hB = this.world.height(car.x - dir.x * 1.3, car.z - dir.z * 1.3, ref);   // ref: stay on the level you are on (over or under a bridge)
         car.slope = (hF - hB) / 2.6; this.pitch = Math.atan(car.slope); this.heightY = (hF + hB) / 2;
       }
       // breadcrumbs for the bird's-eye review on the results sheet
@@ -5985,7 +5986,7 @@
       d.roads.forEach((r, i) => { for (let j = 0; j < r.p.length - 1; j++) { const a = r.p[j], b = r.p[j + 1]; tile(tk((xy[a * 2] + xy[b * 2]) / 2, (xy[a * 2 + 1] + xy[b * 2 + 1]) / 2)).segs.push(i, j); } });
       const seen = new Uint8Array(N);
       d.roads.forEach(r => r.p.forEach(n => { if (!seen[n]) { seen[n] = 1; tile(tk(xy[n * 2], xy[n * 2 + 1])).nodes.push(n); } }));
-      for (let i = 0; i < d.bld.length;) { const n = d.bld[i + 1]; tile(tk(d.bld[i + 2], d.bld[i + 3])).blds.push(i); i += 2 + n * 2; }
+      d.bord = new Map(); for (let i = 0, o = 0; i < d.bld.length; o++) { const n = d.bld[i + 1]; tile(tk(d.bld[i + 2], d.bld[i + 3])).blds.push(i); d.bord.set(i, o); i += 2 + n * 2; }   // bord: which building (for its roof)
       // building grid (for not driving through houses)
       const bgrid = d.bgrid = new Map();
       for (let i = 0; i < d.bld.length;) { const n = d.bld[i + 1]; let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let k = 0; k < n; k++) { const x = d.bld[i + 2 + k * 2], z = d.bld[i + 3 + k * 2]; x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
@@ -6003,7 +6004,10 @@
         d.islands.push({ cx, cz, rad: rad - inset, poly });
       }
       // ground heights (real, from open elevation data): OSM.H(x, z) in metres relative to the test centre
-      if (d.hgt) { const bin = atob(d.hgt.b64), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); d.hgt.a = new Int16Array(u8.buffer); }
+      const unb64 = (b, T2) => { const bin = atob(b), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new T2(u8.buffer); };
+      if (d.hgt) { d.hgt.a = unb64(d.hgt.b64, Int16Array);
+        // the upper level: roads on bridges and embankments, kept apart from the ground (and the road) underneath
+        if (d.hgt.upI) { const I = unb64(d.hgt.upI, Int32Array), Hh = unb64(d.hgt.upH, Int16Array); d.hgt.up = new Map(); for (let k = 0; k < I.length; k++) d.hgt.up.set(I[k], Hh[k]); } }
       // land use (parks, water, car parks...), railways and named places, binned into tiles
       d.areaList = [];
       for (let i = 0; i < (d.areas || []).length;) { const k = d.areas[i], n = d.areas[i + 1], poly = []; for (let q = 0; q < n; q++) poly.push([d.areas[i + 2 + q * 2], d.areas[i + 3 + q * 2]]); i += 2 + n * 2;
@@ -6061,11 +6065,18 @@
       for (const g of groups) g.two = g.stops.some(s => s.bucket === 1);
     }
   };
-  OSM.H = function (x, z) {
+  // ground height at (x, z). ref: the height you're at now (the car, or the road being built); where a road passes
+  // over another, the level nearest ref wins, so you drive over the bridge or under it, whichever you're on
+  OSM.H = function (x, z, ref) {
     const g = OSM.data && OSM.data.hgt; if (!g || !g.a) return 0;
     let fx = (x - g.x0) / g.step, fz = (z - g.z0) / g.step; fx = Math.max(0, Math.min(g.nx - 1.001, fx)); fz = Math.max(0, Math.min(g.nz - 1.001, fz));
-    const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, A = g.a, n = g.nx;
-    return ((A[j * n + i] * (1 - tx) + A[j * n + i + 1] * tx) * (1 - tz) + (A[(j + 1) * n + i] * (1 - tx) + A[(j + 1) * n + i + 1] * tx) * tz) / 10;
+    const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j, A = g.a, n = g.nx, k = j * n + i;
+    const lo = ((A[k] * (1 - tx) + A[k + 1] * tx) * (1 - tz) + (A[k + n] * (1 - tx) + A[k + n + 1] * tx) * tz) / 10;
+    const U = g.up; if (ref === undefined || !U) return lo;
+    const u = c => { const v = U.get(c); return v === undefined ? A[c] : v; };
+    if (!U.has(k) && !U.has(k + 1) && !U.has(k + n) && !U.has(k + n + 1)) return lo;
+    const hi = ((u(k) * (1 - tx) + u(k + 1) * tx) * (1 - tz) + (u(k + n) * (1 - tx) + u(k + n + 1) * tx) * tz) / 10;
+    return Math.abs(hi - ref) < Math.abs(lo - ref) ? hi : lo;
   };
   // lights: each group cycles its two directions; a lone crossing gives traffic most of the time
   function lightState(s, t) {
@@ -6159,7 +6170,8 @@
     const GN = 96, GS = 2400, ground = new t.Mesh(new t.PlaneGeometry(GS, GS, GN, GN), groundM); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; S.add(ground);
     groundM.map.repeat.set(1, 1); ground.geometry.attributes.uv.array.forEach((_, i, a) => { a[i] *= GS / 8; });
     // lift the ground mesh's vertices to the real heights round where it's centred (re-done when it moves)
-    const shapeGround = (mesh, cx, cz, drop) => { const p = mesh.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = cx + p.getX(i), z = cz - p.getY(i); p.setZ(i, H(x, z) - drop); } p.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere(); };
+    // each vertex takes the lowest ground in its patch, so the coarse grass never pokes up through a road
+    const shapeGround = (mesh, cx, cz, drop) => { const p = mesh.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = cx + p.getX(i), z = cz - p.getY(i); let lo = H(x, z); for (const [ox, oz] of [[-12, 0], [12, 0], [0, -12], [0, 12], [-8, -8], [8, 8], [-8, 8], [8, -8]]) lo = Math.min(lo, H(x + ox, z + oz)); p.setZ(i, lo - drop); } p.needsUpdate = true; mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingSphere(); };
     ground.userData.at = null;
     const tiles = new Map(), lightHeads = [];
     // satellite ground: streamed live from Mapbox with your own token (nothing stored), only while you drive here
@@ -6246,7 +6258,11 @@
     const parkedAt = new Map();   // tile key -> [{x, z, hx, hz}] for crashes and clearance
     const inst = (geo, mat, list, shadow) => { if (!list.length) return null; const m = new t.InstancedMesh(geo, mat, list.length); list.forEach((mx, i) => m.setMatrixAt(i, mx)); m.castShadow = !!shadow; m.receiveShadow = true; m.matrixAutoUpdate = false; m.instanceMatrix.needsUpdate = true; m.frustumCulled = false; return m; };   // (this three.js culls instanced meshes by the base shape only)
 
-    const H = OSM.H;
+    // is (x, z) inside a building? (for the pavements: how far the buildings are from the kerb)
+    const inBld = (x, z) => { const l = d.bgrid.get(d.key(Math.floor(x / CELL), Math.floor(z / CELL))); if (!l) return false;
+      for (const i of l) { const n = d.bld[i + 1], poly = []; for (let q = 0; q < n; q++) poly.push([d.bld[i + 2 + q * 2], d.bld[i + 3 + q * 2]]); if (inPoly(x, z, poly)) return true; } return false; };
+    let REF = null;   // while building a road: its own height along the segment (node heights), so it takes its own level
+    const H = (x, z) => OSM.H(x, z, REF ? REF(x, z) : undefined);
     function ribbonInto(arr, uv, x1, z1, x2, z2, hw, y) {
       const dx = x2 - x1, dz = z2 - z1, L = Math.hypot(dx, dz) || 1, nx = -dz / L * hw, nz = dx / L * hw;
       // split into short pieces only where the ground isn't a straight slope between the ends
@@ -6280,8 +6296,18 @@
         if ((++ops & 31) === 0) yield;
         const r = d.roads[info.segs[i]], j = info.segs[i + 1], a = r.p[j], b = r.p[j + 1];
         const x1 = xy[a * 2], z1 = xy[a * 2 + 1], x2 = xy[b * 2], z2 = xy[b * 2 + 1], y = .02 + (8 - r.c) * .003;
+        if (d.nh && d.nh[a] !== null && d.nh[b] !== null) { const ha = d.nh[a] / 10, hb = d.nh[b] / 10, L2 = (x2 - x1) ** 2 + (z2 - z1) ** 2 || 1; REF = (x, z) => ha + (hb - ha) * Math.max(0, Math.min(1, ((x - x1) * (x2 - x1) + (z - z1) * (z2 - z1)) / L2)); } else REF = null;
         ribbonInto(road, ruv, x1, z1, x2, z2, r.w / 2, y);
-        if (r.c >= 2 && r.c <= 6 && !(SAT.token && !SAT.bad)) ribbonInto(pave, puv, x1, z1, x2, z2, r.w / 2 + 1.8, .012);
+        if (r.c >= 2 && r.c <= 6 && !(SAT.token && !SAT.bad)) {
+          // pavement: 1.8 m, or right up to the buildings when they're within 6 m of the kerb (terraces and shops open
+          // straight onto the pavement round here; further back, the grass is front gardens)
+          const L0 = Math.hypot(x2 - x1, z2 - z1) || 1, kx = -(z2 - z1) / L0, kz = (x2 - x1) / L0;
+          for (const sd of [-1, 1]) {
+            let reach = 1.8;
+            if (L0 > 3) { let near = 99; for (const f of [.3, .7]) { const mx = x1 + (x2 - x1) * f, mz = z1 + (z2 - z1) * f; for (let k = .5; k <= 6.5 && k < near; k += .75) if (inBld(mx + kx * sd * (r.w / 2 + k), mz + kz * sd * (r.w / 2 + k))) near = k; } if (near <= 6.5) reach = Math.max(1.8, near + .4); }
+            const o = sd * (r.w / 2 + reach / 2); ribbonInto(pave, puv, x1 + kx * o, z1 + kz * o, x2 + kx * o, z2 + kz * o, reach / 2 + .05, .012);
+          }
+        }
         if (r.c >= 1 && r.c <= 6 && !r.r) { const L0 = Math.hypot(x2 - x1, z2 - z1) || 1, kx = -(z2 - z1) / L0, kz = (x2 - x1) / L0; for (const sd of [-1, 1]) { const o = sd * (r.w / 2 + .14); ribbonInto(kerb, NOBUF, x1 + kx * o, z1 + kz * o, x2 + kx * o, z2 + kz * o, .14, .023); } }
         // markings: a dashed centre line on two-way roads, lane lines on wider ones
         const L = Math.hypot(x2 - x1, z2 - z1), ux = (x2 - x1) / (L || 1), uz = (z2 - z1) / (L || 1), nx = -uz, nz = ux;
@@ -6294,9 +6320,9 @@
           for (const off of lines) for (let s = s0; s < s1 - .5; s += dash + gap) { const e = Math.min(s + dash, s1); ribbonInto(white, NOBUF, x1 + ux * s + nx * off, z1 + uz * s + nz * off, x1 + ux * e + nx * off, z1 + uz * e + nz * off, .06, y + .012); }
         }
       }
-      OSM.ph = "nodes";
+      OSM.ph = "nodes"; REF = null;
       // junctions and bends: fill round each node so the corners are surfaced (a wider fill where roads meet)
-      for (const n of info.nodes) {
+      for (const n of info.nodes) { REF = d.nh && d.nh[n] !== null ? (h0 => () => h0)(d.nh[n] / 10) : null;
         if ((++ops & 63) === 0) yield;
         const rs = d.at[n]; let mw = 0, mc = 8; for (const ri of rs) { mw = Math.max(mw, d.roads[ri].w); mc = Math.min(mc, d.roads[ri].c); }
         const jn = d.junction[n] >= 3;
@@ -6305,7 +6331,7 @@
       OSM.ph = "gw";
       // give-way lines (double dashed) across the approach half, mini-roundabout discs
       const gwSet = OSM._gw || (OSM._gw = new Set(d.ctrl.gw.concat(d.ctrl.st)));
-      for (const n of info.nodes) {
+      for (const n of info.nodes) { REF = d.nh && d.nh[n] !== null ? (h0 => () => h0)(d.nh[n] / 10) : null;
         if (gwSet.has(n)) for (const ri of new Set(d.at[n])) {
           const r = d.roads[ri], j = r.p.indexOf(n); if (r.c <= 1) continue;
           const toEnd = (r.p.length - 1 - j) < j, nb = r.p[toEnd ? Math.min(j + 1, r.p.length - 1) : Math.max(j - 1, 0)]; if (nb === n) continue;
@@ -6319,7 +6345,7 @@
       OSM.ph = "cross";
       const zSet = OSM._z || (OSM._z = new Set(d.ctrl.zebra || [])), pSet = OSM._pc || (OSM._pc = new Set(d.ctrl.pcross || []));
       const beaconM = OSM._bm || (OSM._bm = new t.MeshStandardMaterial({ color: 0xffa000, emissive: 0xff9000, emissiveIntensity: 1.2 })), poleM = OSM._pm || (OSM._pm = new t.MeshStandardMaterial({ color: 0x111111 }));
-      for (const n of info.nodes) {
+      for (const n of info.nodes) { REF = d.nh && d.nh[n] !== null ? (h0 => () => h0)(d.nh[n] / 10) : null;
         const isZ = zSet.has(n), isP = pSet.has(n); if (!isZ && !isP) continue;
         const ri = d.at[n][0], r = d.roads[ri], j = r.p.indexOf(n), nb = r.p[j < r.p.length - 1 ? j + 1 : j - 1];
         const x = xy[n * 2], z = xy[n * 2 + 1], dx = xy[nb * 2] - x, dz = xy[nb * 2 + 1] - z, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = -uz, nz = ux, hw = r.w / 2;
@@ -6336,6 +6362,7 @@
           for (const s0 of [-1.4, 1.4]) for (let o = -hw + .2; o < hw; o += .5) ribbonInto(white, NOBUF, x + nx * o + ux * s0, z + nz * o + uz * s0, x + nx * (o + .2) + ux * s0, z + nz * (o + .2) + uz * s0, .1, .05);
         }
       }
+      REF = null;
       // lane arrows (only where OSM says the lanes are marked), about 12 m and 32 m before the end of the approach
       for (let i = 0; i < info.segs.length; i += 2) {
         const r = d.roads[info.segs[i]], j = info.segs[i + 1];
@@ -6396,8 +6423,13 @@
         const y0 = gMin - .4, top = gMax + h;
         let area = 0; for (let q = 0; q < n; q++) { const [x1, z1] = pts[q], [x2, z2] = pts[(q + 1) % n]; area += x1 * z2 - x2 * z1; } area = Math.abs(area) / 2;
         const hsh = (i * 2654435761 >>> 0) / 4294967296;
-        // style from size: small = houses (brick or render), big and low = industrial, tall = flats or offices, mid = shops
-        const st = h <= 9 ? (area > 700 ? 4 : hsh < .68 ? 0 : 1) : h <= 13 ? (area > 900 ? 4 : hsh < .5 ? 2 : 3) : (hsh < .5 ? 3 : 2);
+        // the measured roof (OS + LIDAR maps): rise above the eaves in metres, 0 = flat; undefined = guess like before
+        const ord = d.bord.get(i), rise = d.roofs ? d.roofs[ord] / 10 : undefined, imp = d.bkinds && d.bkinds[ord] === 1;
+        // style from size: small = houses (brick or render), big and low = industrial, tall = flats or offices, mid = shops.
+        // A long, narrow, house-height block is a terraced row: red brick, like the streets round here.
+        let lng0 = 0, sht0 = 1e9; if (n === 4) for (let q = 0; q < 2; q++) { const L = Math.hypot(pts[q + 1][0] - pts[q][0], pts[q + 1][1] - pts[q][1]); lng0 = Math.max(lng0, L); sht0 = Math.min(sht0, L); }
+        const terrace = n === 4 && h <= 9 && lng0 > 13 && sht0 < 12;
+        const st = imp ? (hsh < .5 ? 3 : 2) : terrace ? 0 : h <= 9 ? (area > 700 ? 4 : hsh < .68 ? 0 : 1) : h <= 13 ? (area > 900 ? 4 : hsh < .5 ? 2 : 3) : (hsh < .5 ? 3 : 2);
         const tv = .88 + hsh * .2, tint = [tv, tv * (st === 0 ? .97 : 1), tv * (st === 0 ? .95 : 1)];
         // walls: a ground-storey band and the storeys above, texture coordinates in bays and storeys
         let run = 0; const gTop = Math.min(h, STOREY);
@@ -6411,11 +6443,11 @@
         }
         // roof: houses on a rectangle get a pitched slate roof along their long side (gable ends in the wall material); the rest flat
         const rect = n === 4 && (() => { for (let q = 0; q < 4; q++) { const [ax, az] = pts[q], [bx, bz] = pts[(q + 1) % 4], [cx, cz] = pts[(q + 2) % 4]; const d1x = bx - ax, d1z = bz - az, d2x = cx - bx, d2z = cz - bz; if (Math.abs(d1x * d2x + d1z * d2z) / (Math.hypot(d1x, d1z) * Math.hypot(d2x, d2z) || 1) > .25) return false; } return true; })();
-        if (rect && (st === 0 || st === 1) && area < 1200) {
+        if (rect && (rise !== undefined ? rise > 0 : (st === 0 || st === 1) && area < 1200)) {
           const e = q => Math.hypot(pts[(q + 1) % 4][0] - pts[q][0], pts[(q + 1) % 4][1] - pts[q][1]), lng = e(0) >= e(1) ? 0 : 1;
           // ridge runs between the midpoints of the two short sides
           const A = pts[lng], Bp = pts[lng + 1], C = pts[lng + 2], Dp = pts[(lng + 3) % 4];
-          const m1 = [(Dp[0] + A[0]) / 2, (Dp[1] + A[1]) / 2], m2 = [(Bp[0] + C[0]) / 2, (Bp[1] + C[1]) / 2], half = e(lng + 1) / 2, rh = top + Math.min(3.2, half * .6), len = e(lng);
+          const m1 = [(Dp[0] + A[0]) / 2, (Dp[1] + A[1]) / 2], m2 = [(Bp[0] + C[0]) / 2, (Bp[1] + C[1]) / 2], half = e(lng + 1) / 2, rh = top + (rise !== undefined ? Math.min(rise, half * 1.1) : Math.min(3.2, half * .6)), len = e(lng);
           const slope = (P, Q) => { const nx0 = 0; return nx0; };
           for (const [a, b] of [[A, Bp], [C, Dp]]) {   // two roof planes, each from an eave up to the ridge
             const ra = Math.hypot(a[0] - m1[0], a[1] - m1[1]) < Math.hypot(a[0] - m2[0], a[1] - m2[1]) ? m1 : m2, rb = ra === m1 ? m2 : m1;
@@ -6606,7 +6638,7 @@
     }
 
     const world = {
-      group, osm: true, routes: [], height: d.hgt ? (x, z) => H(x, z) : undefined,
+      group, osm: true, routes: [], height: d.hgt ? (x, z, ref) => OSM.H(x, z, ref) : undefined,
       onRoad(x, z) {
         const l = d.grid.get(d.key(Math.floor(x / CELL), Math.floor(z / CELL)));
         if (l) for (let i = 0; i < l.length; i += 2) {
@@ -6753,7 +6785,7 @@
       const yaw = Math.atan2(-ux, -uz), k = c.rdt === undefined ? 1 : Math.min(1, c.rdt * 10), ky = c.rdt === undefined ? 1 : Math.min(1, c.rdt * 5);
       c.rx = c.rx === undefined ? c.x : c.rx + (c.x - c.rx) * k; c.rz = c.rz === undefined ? c.z : c.rz + (c.z - c.rz) * k;
       let dy = yaw - (c.ry ?? yaw); while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; c.ry = (c.ry ?? yaw) + dy * ky;
-      c.mesh.position.set(c.rx, OSM.H(c.rx, c.rz), c.rz); c.mesh.rotation.y = c.ry;
+      c.hy = OSM.H(c.rx, c.rz, c.hy); c.mesh.position.set(c.rx, c.hy, c.rz);   // keeps to its own level under or over a bridge c.mesh.rotation.y = c.ry;
     }
     // the next road from the end of this one: no U-turns, one-way respected, mostly the bigger roads
     next(c) {
@@ -7315,7 +7347,7 @@
       <canvas style="width:100%;height:min(58vh,520px);border-radius:12px;cursor:crosshair;touch-action:none;background:#1b2128;display:block"></canvas>
       <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><span class="sub osmpick-info" style="flex:1;min-width:220px">Click any road to start there. Drag to move, scroll to zoom.</span>
         <button class="btn ghost small" data-flip hidden>Face the other way</button>${opts.cancel ? `<button class="btn ghost small" data-cancel>Cancel</button>` : ""}<button class="btn" data-go disabled>${opts.goLabel || "Start here"}</button></div>
-      <span class="sub osmpick-credit" style="font-size:11px;opacity:.6">${sat ? "Imagery © Mapbox © Maxar · " : ""}Map data © OpenStreetMap contributors</span></div>`;
+      <span class="sub osmpick-credit" style="font-size:11px;opacity:.6">${sat ? "Imagery © Mapbox © Maxar · " : ""}Map data © OpenStreetMap contributors · Contains OS data © Crown copyright and database right · LIDAR © Environment Agency</span></div>`;
     const cv = host.querySelector("canvas"), g = cv.getContext("2d"), info = host.querySelector(".osmpick-info"), goB = host.querySelector("[data-go]"), flipB = host.querySelector("[data-flip]");
     let scale = .16, cx = 0, cz = 0, sel = null, pick = null, flip = false, hover = null;
     if (opts.car) { cx = opts.car.x; cz = opts.car.z; scale = .6; }
@@ -7391,7 +7423,7 @@
     host.onclick = e => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.pl) { if (b.dataset.pl === "car") { cx = opts.car.x; cz = opts.car.z; scale = 1.6; } else { const [, lat, lon, k] = places[+b.dataset.pl]; [cx, cz] = toXZ(lat, lon, k); scale = .6; } draw(); }
-      else if (b.hasAttribute("data-sat")) { sat = !sat; try { localStorage.setItem("tr.mapSat", sat ? "1" : "0"); } catch (e) { } b.textContent = sat ? "Map" : "Satellite"; host.querySelector(".osmpick-credit").textContent = (sat ? "Imagery © Mapbox © Maxar · " : "") + "Map data © OpenStreetMap contributors"; draw(); }
+      else if (b.hasAttribute("data-sat")) { sat = !sat; try { localStorage.setItem("tr.mapSat", sat ? "1" : "0"); } catch (e) { } b.textContent = sat ? "Map" : "Satellite"; host.querySelector(".osmpick-credit").textContent = (sat ? "Imagery © Mapbox © Maxar · " : "") + "Map data © OpenStreetMap contributors · Contains OS data © Crown copyright and database right · LIDAR © Environment Agency"; draw(); }
       else if (b.dataset.z) { scale = Math.min(12, Math.max(.06, scale * +b.dataset.z)); draw(); }
       else if (b.hasAttribute("data-flip")) { flip = !flip; choose(); }
       else if (b.hasAttribute("data-cancel")) opts.cancel();
@@ -7510,7 +7542,7 @@
   }
   // free drive on the real Chadderton / Oldham / Ashton roads: its own strip, start where you like
   function freeCard() {
-    return `<div class="card dfree"><div><b>Real roads</b><span class="sub">Chadderton, Oldham and Ashton, joined up. Mock test route: sat nav from the test centre and back. Or just drive from anywhere; Esc, then End drive for your sheet.</span><span class="osm">Map data © OpenStreetMap contributors</span></div>
+    return `<div class="card dfree"><div><b>Real roads</b><span class="sub">Chadderton, Oldham and Ashton, joined up. Mock test route: sat nav from the test centre and back. Or just drive from anywhere; Esc, then End drive for your sheet.</span><span class="osm">Map data © OpenStreetMap contributors · Contains OS data © Crown copyright and database right · LIDAR © Environment Agency</span></div>
       <div class="row" style="gap:8px;flex-wrap:nowrap">${[["test-route", "Mock test route"], ["free-centre", "Test centre"], ["free-oldham", "Oldham"], ["free-ashton", "Ashton"]].map(([id, n], i) => `<button class="btn small ${i ? "ghost" : ""}" ${id === "test-route" ? 'data-d="run" data-run="real-mock"' : `data-d="go" data-id="${id}" data-m="${mode}"`}>${i ? "" : ic2("play")}${n}</button>`).join("")}<button class="btn small ghost" data-d="pickmap" title="Choose any road to start from">Pick on map</button></div></div>`;
   }
   const ic2 = n => `<svg class="ic"><use href="#i-${n}"/></svg>`;
