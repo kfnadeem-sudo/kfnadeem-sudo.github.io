@@ -647,7 +647,10 @@
 (function () {
   const RPM = w => w * 60 / (2 * Math.PI), RAD = r => r * 2 * Math.PI / 60;
   const RATIOS = { "-1": -3.4, 0: 0, 1: 3.58, 2: 2.02, 3: 1.35, 4: 1.03, 5: 0.82, 6: 0.68 };
-  const FINAL = 4.06, WHEEL_R = 0.31, MASS = 1350, WB = 2.68, MAX_STEER = 0.58, JE = 0.22, G = 9.81;
+  // your car is a 2012 Mazda 6 hatch (UK Mk2): 4.755 m long, 1.795 m wide, 2.725 m wheelbase, 1.565 m track.
+  // DIM is measured from the middle of the wheelbase: the front bumper is 2.31 m ahead, the back 2.445 m behind.
+  const DIM = { front: 2.31, rear: 2.445, half: .8975, track: .7825, len: 4.755, wid: 1.795 };
+  const FINAL = 4.06, WHEEL_R = 0.32, MASS = 1400, WB = 2.725, MAX_STEER = 0.58, JE = 0.22, G = 9.81;
   const IDLE = 820, STALL = 360, REDLINE = 6200;
   function torqueCurve(rpm) {   // diesel-ish family car, peak ~240 Nm at 2000-2800
     if (rpm < 600) return 70;
@@ -768,15 +771,15 @@
     // where the tyres touch the road: kerb checks use these (the body can overhang a kerb, the tyres can't cross it)
     wheels() {
       const d = this.dir, l = { x: d.z, z: -d.x };
-      return [[1.34, .84], [1.34, -.84], [-1.34, -.84], [-1.34, .84]].map(([a, b]) => ({ x: this.x + d.x * a + l.x * b, z: this.z + d.z * a + l.z * b }));
+      return [[WB / 2, DIM.track], [WB / 2, -DIM.track], [-WB / 2, -DIM.track], [-WB / 2, DIM.track]].map(([a, b]) => ({ x: this.x + d.x * a + l.x * b, z: this.z + d.z * a + l.z * b }));
     }
     // corners of the car body for collision / position checks
     corners() {
-      const d = this.dir, l = { x: d.z, z: -d.x }, hl = 2.3, hw = 0.92;
-      return [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) => ({ x: this.x + d.x * hl * a + l.x * hw * b, z: this.z + d.z * hl * a + l.z * hw * b }));
+      const d = this.dir, l = { x: d.z, z: -d.x }, hw = DIM.half;
+      return [[DIM.front, 1], [DIM.front, -1], [-DIM.rear, -1], [-DIM.rear, 1]].map(([a, b]) => ({ x: this.x + d.x * a + l.x * hw * b, z: this.z + d.z * a + l.z * hw * b }));
     }
   }
-  window.SimCar = { Car, engagement, RATIOS, WHEEL_R, IDLE, REDLINE, WB, MAX_STEER };
+  window.SimCar = { Car, engagement, RATIOS, WHEEL_R, IDLE, REDLINE, WB, MAX_STEER, DIM };
 })();
 
 </script>
@@ -1625,6 +1628,45 @@
     g.userData = { brake, indL, indR, hl };
     return g;
   }
+  // your own car: a 2012 Mazda 6 hatch at its real size (car.js DIM), so what you see from the door, the camera and the
+  // top-down view is where the car really ends. Front -Z, the middle of the wheelbase at 0.
+  const MZ = {
+    body: [[-2.29, .3], [-2.31, .52], [-2.28, .64], [-2.14, .75], [-1.6, .84], [-1.0, .93], [1.72, .98], [2.22, .96], [2.4, .84], [2.445, .58], [2.41, .3]],
+    cabin: [[-1.0, .92], [-.12, 1.38], [.95, 1.41], [2.1, .99], [1.72, .97]],
+    roof: [[-.08, 1.38], [.93, 1.41], [.9, 1.46], [-.02, 1.44]],
+    bonnet: [[-2.29, .3], [-2.31, .52], [-2.28, .64], [-2.14, .75], [-1.6, .84], [-1.0, .93], [-.86, .94], [-.86, .3]],
+    boot: [[1.62, .3], [1.62, .975], [2.22, .96], [2.4, .84], [2.445, .58], [2.41, .3]]
+  };
+  let MGEO = null;
+  function mazdaMesh(color) {
+    const t = T(), G = geos(), g = new t.Group(), D = window.SimCar.DIM, WB = window.SimCar.WB;
+    const M = MGEO || (MGEO = { body: profile(MZ.body, D.wid, .07), cabin: profile(MZ.cabin, 1.6, .05), roof: profile(MZ.roof, 1.44, .03), tyre: new t.CylinderGeometry(.322, .322, .215, 22), rim: new t.CylinderGeometry(.22, .22, .225, 20), spoke: new t.BoxGeometry(.226, .03, .4) });
+    const paint = new t.MeshStandardMaterial({ color, roughness: .28, metalness: .5 }), black = new t.MeshStandardMaterial({ color: 0x0c0d0f, roughness: .5 });
+    const add = (geo, mat, x = 0, y = 0, z = 0, shadow) => { const m = new t.Mesh(geo, mat); m.position.set(x, y, z); if (shadow) m.castShadow = true; g.add(m); return m; };
+    add(M.body, paint, 0, 0, 0, true); add(M.cabin, G.glass, 0, 0, 0, true); add(M.roof, paint);
+    // 17-inch alloys: five spokes each
+    for (const [x, z] of [[-D.track, -WB / 2], [D.track, -WB / 2], [-D.track, WB / 2], [D.track, WB / 2]]) {
+      add(M.tyre, G.tyreM, x, .322, z).rotation.z = Math.PI / 2; add(M.rim, black, x, .322, z).rotation.z = Math.PI / 2;
+      for (let i = 0; i < 5; i++) { const s = add(M.spoke, G.rimM, x + Math.sign(x) * .002, .322, z); s.rotation.set(i * Math.PI * 2 / 5, 0, 0); s.scale.set(1, 1, .95); }
+    }
+    // the five-point grille and lower intake, swept headlamps, fog lamps
+    const grille = add(new t.BoxGeometry(.62, .16, .04), black, 0, .62, -2.29); grille.rotation.x = .25;
+    add(new t.BoxGeometry(1.2, .12, .04), black, 0, .4, -2.31);
+    const hl = [-.6, .6].map(x => { const m = add(new t.BoxGeometry(.42, .1, .2), G.head, x, .71, -2.18); m.rotation.y = -Math.sign(x) * .35; m.rotation.x = .2; return m; });
+    for (const x of [-.66, .66]) add(new t.CylinderGeometry(.045, .045, .03, 14), G.white, x, .42, -2.3).rotation.x = Math.PI / 2;
+    add(G.plate, G.white, 0, .47, -2.33); add(G.plate, G.yellow, 0, .6, 2.45);
+    // hatch: spoiler lip, tail lamps wrapping round the corners, rear bumper
+    add(new t.BoxGeometry(1.3, .03, .14), paint, 0, 1.0, 2.1).rotation.x = -.25;
+    add(new t.BoxGeometry(1.6, .14, .1), black, 0, .38, 2.43);
+    for (const x of [-.95, .95]) add(G.mirror, paint, x, 1.0, -.82);
+    for (const x of [-.9, .9]) for (const z of [-.35, .7]) add(new t.BoxGeometry(.02, .025, .14), G.rimM, x, .93, z);
+    const mk = (geo, x, y, z, col, base) => add(geo, new t.MeshStandardMaterial({ color: 0x331100, emissive: col, emissiveIntensity: base }), x, y, z);
+    const tail = new t.BoxGeometry(.32, .13, .08);
+    const brake = [mk(tail, -.64, .84, 2.39, 0xff2010, .25), mk(tail, .64, .84, 2.39, 0xff2010, .25)];
+    const indL = [mk(G.ind, -.82, .62, -2.2, 0xffa000, 0), mk(G.ind, -.78, .78, 2.4, 0xffa000, 0)], indR = [mk(G.ind, .82, .62, -2.2, 0xffa000, 0), mk(G.ind, .78, .78, 2.4, 0xffa000, 0)];
+    g.userData = { brake, indL, indR, hl };
+    return g;
+  }
   function personMesh(seed) {
     const t = T(), g = new t.Group(), r = W().rng(seed);
     const coat = new t.MeshStandardMaterial({ color: [0xb83a2e, 0x2f5f9e, 0x3e6b2f, 0x6b4a8a, 0xc79a2e][(r() * 5) | 0], roughness: .9 });
@@ -1806,7 +1848,181 @@
     setPhase(idx, left) { this.i = idx; this.left = left ?? this.cycle[idx][2]; this.apply(); }
   }
 
-  window.SimTraffic = { Traffic, Lights, carMesh, personMesh, bikeMesh, profile };
+  window.SimTraffic = { Traffic, Lights, carMesh, mazdaMesh, personMesh, bikeMesh, profile, MZ };
+})();
+
+</script>
+<script>
+// Test Ready simulator: the inside of the car, styled after a 2012 Mazda 6 (the UK Mk2, "GH"). Three deep chrome-ringed
+// dials (rev counter, speedometer, fuel and temperature) drawn live onto a texture, warning lights that behave like the
+// real ones (bulb check at start, battery / oil / engine when stalled), and a gear lever, pedals, handbrake and stalks
+// that move with what you do. Car-local: forward = -Z, right = +X, the driver sits at x = +0.37 (right-hand drive).
+(function () {
+  const T = () => window.THREE;
+  const CW = 1024, CH = 384, FW = .36, FH = .135, PX = CW / FW;   // the cluster face: canvas pixels and metres
+  // the three dials, in canvas pixels: rev counter left, speedometer middle, fuel + temperature right
+  const D = { tach: { x: 176, y: 196, r: 142 }, speedo: { x: 512, y: 192, r: 172 }, aux: { x: 850, y: 196, r: 130 } };
+  const A0 = .75 * Math.PI, SWEEP = 1.5 * Math.PI;   // dial needles: 7:30 round to 4:30 through 12
+  const RED = "#ff2a1a", WHITE = "#f4f6f8";
+
+  // ───────── the dial faces: drawn once (ticks and numbers), the needles and lights go on top every update
+  function faces() {
+    const c = document.createElement("canvas"); c.width = CW; c.height = CH; const g = c.getContext("2d");
+    g.fillStyle = "#050607"; g.fillRect(0, 0, CW, CH);
+    const ring = (d) => { const gr = g.createRadialGradient(d.x, d.y, d.r * .2, d.x, d.y, d.r); gr.addColorStop(0, "#0f1114"); gr.addColorStop(1, "#050608"); g.fillStyle = gr; g.beginPath(); g.arc(d.x, d.y, d.r, 0, 7); g.fill(); g.strokeStyle = "#1c2026"; g.lineWidth = 3; g.stroke(); };
+    const scale = (d, max, major, minor, label, redFrom, rIn) => {
+      for (let v = 0; v <= max + 1e-6; v += minor) {
+        const a = A0 + v / max * SWEEP, big = Math.abs(v / major - Math.round(v / major)) < 1e-6, r0 = d.r * (big ? .78 : .84), r1 = d.r * .92;
+        g.strokeStyle = redFrom !== undefined && v >= redFrom ? RED : WHITE; g.lineWidth = big ? 4 : 2;
+        g.beginPath(); g.moveTo(d.x + Math.cos(a) * r0, d.y + Math.sin(a) * r0); g.lineTo(d.x + Math.cos(a) * r1, d.y + Math.sin(a) * r1); g.stroke();
+        if (big) { const rr = d.r * (rIn || .63); g.fillStyle = redFrom !== undefined && v >= redFrom ? RED : WHITE; g.fillText(label(v), d.x + Math.cos(a) * rr, d.y + Math.sin(a) * rr); }
+      }
+      if (redFrom !== undefined) { g.strokeStyle = RED; g.lineWidth = 7; g.beginPath(); g.arc(d.x, d.y, d.r * .95, A0 + redFrom / max * SWEEP, A0 + SWEEP); g.stroke(); }
+    };
+    g.textAlign = "center"; g.textBaseline = "middle";
+    // rev counter: 0-8 x1000, red from 6.5
+    ring(D.tach); g.font = "600 30px system-ui,sans-serif"; scale(D.tach, 8, 1, .5, v => String(v), 6.5);
+    g.font = "500 14px system-ui,sans-serif"; g.fillStyle = "#9aa3ad"; g.fillText("x1000r/min", D.tach.x, D.tach.y + 46);
+    // speedometer: mph outside (big), km/h inside (small)
+    ring(D.speedo); g.font = "600 28px system-ui,sans-serif"; scale(D.speedo, 160, 20, 10, v => String(v));
+    g.font = "500 13px system-ui,sans-serif"; g.fillStyle = "#8f98a3";
+    for (let k = 0; k <= 240; k += 40) { const a = A0 + k / 1.609 / 160 * SWEEP, rr = D.speedo.r * .43; g.fillText(String(k), D.speedo.x + Math.cos(a) * rr, D.speedo.y + Math.sin(a) * rr); }
+    g.font = "600 15px system-ui,sans-serif"; g.fillStyle = "#c9d0d8"; g.fillText("MPH", D.speedo.x, D.speedo.y - 58); g.font = "500 12px system-ui,sans-serif"; g.fillStyle = "#8f98a3"; g.fillText("km/h", D.speedo.x, D.speedo.y - 40);
+    // the trip display at the bottom of the speedometer
+    g.fillStyle = "#0b0f12"; g.strokeStyle = "#20262d"; g.lineWidth = 2; g.beginPath(); g.roundRect ? g.roundRect(D.speedo.x - 70, D.speedo.y + 70, 140, 52, 6) : g.rect(D.speedo.x - 70, D.speedo.y + 70, 140, 52); g.fill(); g.stroke();
+    // fuel (top arc, E to F) and temperature (bottom arc, C to H)
+    const aux = D.aux; ring(aux);
+    const arc = (a0, a1, n, lab, redEnd) => { for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n, big = i % (n / 2) === 0, r0 = aux.r * (big ? .74 : .8), r1 = aux.r * .9; g.strokeStyle = redEnd && i === n ? RED : WHITE; g.lineWidth = big ? 4 : 2; g.beginPath(); g.moveTo(aux.x + Math.cos(a) * r0, aux.y + Math.sin(a) * r0); g.lineTo(aux.x + Math.cos(a) * r1, aux.y + Math.sin(a) * r1); g.stroke(); }
+      g.font = "700 22px system-ui,sans-serif"; g.fillStyle = WHITE; const rr = aux.r * .58; g.fillText(lab[0], aux.x + Math.cos(a0) * rr, aux.y + Math.sin(a0) * rr); g.fillStyle = redEnd ? RED : WHITE; g.fillText(lab[1], aux.x + Math.cos(a1) * rr, aux.y + Math.sin(a1) * rr); };
+    arc(FUEL.a0, FUEL.a1, 4, ["E", "F"]); arc(TEMP.a0, TEMP.a1, 4, ["C", "H"], true);
+    // little fuel pump and thermometer symbols
+    g.fillStyle = "#c9d0d8"; g.fillRect(aux.x - 7, aux.y - 52, 14, 18); g.fillRect(aux.x + 7, aux.y - 48, 5, 3);
+    g.fillRect(aux.x - 2, aux.y + 30, 4, 18); g.beginPath(); g.arc(aux.x, aux.y + 50, 5, 0, 7); g.fill();
+    return c;
+  }
+  const FUEL = { a0: 1.18 * Math.PI, a1: 1.82 * Math.PI }, TEMP = { a0: .82 * Math.PI, a1: .18 * Math.PI };
+
+  // ───────── warning light symbols (simple, readable versions of the real ones)
+  const ICON = {
+    arrowL(g, x, y, s) { g.beginPath(); g.moveTo(x - s, y); g.lineTo(x - s * .1, y - s * .7); g.lineTo(x - s * .1, y - s * .3); g.lineTo(x + s, y - s * .3); g.lineTo(x + s, y + s * .3); g.lineTo(x - s * .1, y + s * .3); g.lineTo(x - s * .1, y + s * .7); g.closePath(); g.fill(); },
+    arrowR(g, x, y, s) { g.save(); g.translate(x, y); g.scale(-1, 1); ICON.arrowL(g, 0, 0, s); g.restore(); },
+    beam(g, x, y, s) { g.beginPath(); g.arc(x + s * .1, y, s * .55, -Math.PI / 2, Math.PI / 2); g.lineTo(x - s * .2, y + s * .55); g.quadraticCurveTo(x - s * .55, y, x - s * .2, y - s * .55); g.closePath(); g.fill(); g.lineWidth = s * .16; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x - s * .45, y + i * s * .32); g.lineTo(x - s * 1.05, y + i * s * .32 + s * .12); g.stroke(); } },
+    brake(g, x, y, s) { g.lineWidth = s * .16; g.beginPath(); g.arc(x, y, s * .55, 0, 7); g.stroke(); g.beginPath(); g.arc(x, y, s * .9, -.9, .9); g.stroke(); g.beginPath(); g.arc(x, y, s * .9, Math.PI - .9, Math.PI + .9); g.stroke(); g.font = `800 ${s * .8}px system-ui`; g.fillText("!", x, y + s * .04); },
+    battery(g, x, y, s) { g.fillRect(x - s * .8, y - s * .45, s * 1.6, s); g.fillRect(x - s * .6, y - s * .65, s * .3, s * .2); g.fillRect(x + s * .3, y - s * .65, s * .3, s * .2); g.fillStyle = "#050607"; g.fillRect(x - s * .55, y + s * .02, s * .35, s * .1); g.fillRect(x + s * .2, y + s * .02, s * .35, s * .1); g.fillRect(x + s * .32, y - s * .1, s * .1, s * .35); },
+    oil(g, x, y, s) { g.beginPath(); g.moveTo(x - s * .9, y - s * .2); g.lineTo(x - s * .3, y - s * .2); g.lineTo(x - s * .1, y - s * .45); g.lineTo(x + s * .35, y - s * .45); g.lineTo(x + s * .9, y - s * .2); g.lineTo(x + s * .4, y + s * .4); g.lineTo(x - s * .7, y + s * .4); g.closePath(); g.fill(); g.beginPath(); g.arc(x + s * 1.05, y + s * .25, s * .12, 0, 7); g.fill(); },
+    engine(g, x, y, s) { g.lineWidth = s * .18; g.strokeRect(x - s * .7, y - s * .35, s * 1.3, s * .8); g.fillRect(x - s * .35, y - s * .6, s * .6, s * .2); g.fillRect(x + s * .6, y - s * .1, s * .3, s * .25); g.fillRect(x - s * 1.0, y - s * .05, s * .3, s * .2); },
+    abs(g, x, y, s) { g.lineWidth = s * .14; g.beginPath(); g.arc(x, y, s * .75, 0, 7); g.stroke(); g.font = `800 ${s * .5}px system-ui`; g.fillText("ABS", x, y + s * .03); },
+    belt(g, x, y, s) { g.beginPath(); g.arc(x, y - s * .55, s * .25, 0, 7); g.fill(); g.fillRect(x - s * .35, y - s * .25, s * .7, s * .8); g.strokeStyle = "#050607"; g.lineWidth = s * .16; g.beginPath(); g.moveTo(x - s * .35, y - s * .25); g.lineTo(x + s * .35, y + s * .45); g.stroke(); }
+  };
+  // where each light sits on the cluster, its colour, and its symbol
+  const LIGHTS = [["indL", 362, 40, "#2fe05a", "arrowL", 18], ["indR", 662, 40, "#2fe05a", "arrowR", 18], ["beam", 512, 262 - 160, "#2fe05a", "beam", 13],
+    ["battery", D.tach.x - 44, D.tach.y + 92, RED, "battery", 14], ["oil", D.tach.x, D.tach.y + 92, RED, "oil", 14], ["engine", D.tach.x + 44, D.tach.y + 92, "#ffb000", "engine", 14],
+    ["brake", D.aux.x - 32, D.aux.y + 94, RED, "brake", 14], ["abs", D.aux.x + 32, D.aux.y + 94, "#ffb000", "abs", 14], ["belt", 512 + 120, 40, RED, "belt", 14]];
+
+  // ───────── the interior
+  function build(g, opts) {
+    const t = T(), M = (c, r = .8, m = 0) => new t.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+    const soft = M(0x16181b, .95), hard = M(0x0e1013, .7), piano = M(0x050505, .25, .2), silver = M(0x9aa0a8, .35, .8), chrome = M(0xd8dde2, .15, 1), leather = M(0x111214, .65), carpet = M(0x15161a, 1);
+    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = g) => { const m = new t.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m; };
+    const box = (w, h, d) => new t.BoxGeometry(w, h, d);
+    // floor and footwell
+    add(new t.PlaneGeometry(1.6, 1.6), carpet, 0, .3, -.4, -Math.PI / 2);
+    add(box(.05, .26, .5), hard, .14, .44, -.9);   // transmission tunnel side, driver's footwell
+    // the binnacle: a hood over the three dials
+    // the binnacle: a visor arching over the top of the three dials (axis across the car, open towards you)
+    const hood = add(new t.CylinderGeometry(.2, .2, .44, 28, 1, true, .6, Math.PI - .6), soft.clone(), .37, 1.04, -.9, 0, 0, Math.PI / 2);
+    hood.material.side = t.DoubleSide; hood.scale.set(1, 1, .75);
+    // the cluster face: a live canvas texture, unlit so it reads like backlit dials
+    const face = new t.Group(); face.position.set(.37, 1.055, -.885); face.rotation.x = -.22; g.add(face);
+    const cv = document.createElement("canvas"); cv.width = CW; cv.height = CH; const tex = new t.CanvasTexture(cv); tex.encoding = t.sRGBEncoding; tex.anisotropy = 8;
+    add(new t.PlaneGeometry(FW, FH), new t.MeshBasicMaterial({ map: tex }), 0, 0, 0, 0, 0, 0, face);
+    // each dial sits at the back of a short tube with a chrome ring at its mouth
+    const tube = soft.clone(); tube.side = t.BackSide;
+    for (const d of Object.values(D)) {
+      const x = (d.x - CW / 2) / PX, y = -(d.y - CH / 2) / PX, r = d.r / PX + .004;
+      add(new t.CylinderGeometry(r, r * 1.05, .032, 32, 1, true), tube, x, y, .016, Math.PI / 2, 0, 0, face);
+      add(new t.TorusGeometry(r * 1.05, .0025, 8, 48), chrome, x, y, .032, 0, 0, 0, face);
+    }
+    // dashboard detail: the silver strip across, the centre stack with vents, the radio and three climate knobs
+    add(box(1.5, .012, .012), silver, 0, .875, -.69);
+    const stack = new t.Group(); stack.position.set(0, .73, -.67); g.add(stack);
+    add(box(.34, .3, .06), hard, 0, 0, 0, -.12, 0, 0, stack);
+    add(box(.35, .006, .062), silver, 0, .15, .002, -.12, 0, 0, stack); add(box(.35, .006, .062), silver, 0, -.15, .002, -.12, 0, 0, stack);
+    for (const sx of [-1, 1]) { add(box(.12, .07, .02), piano, sx * .085, .095, .03, -.12, 0, 0, stack); for (let i = 0; i < 4; i++) add(box(.11, .004, .012), silver, sx * .085, .072 + i * .015, .04, -.12, 0, 0, stack); }
+    add(new t.CylinderGeometry(.012, .012, .01, 3), M(0xc0201a, .4), 0, .095, .04, Math.PI / 2 - .12, 0, 0, stack);   // hazard button
+    const radio = new t.CanvasTexture((() => { const c = document.createElement("canvas"); c.width = 256; c.height = 64; const q = c.getContext("2d"); q.fillStyle = "#0a0806"; q.fillRect(0, 0, 256, 64); q.fillStyle = "#ff8a3a"; q.font = "600 26px monospace"; q.fillText("FM  97.4", 18, 30); q.font = "500 16px monospace"; q.fillText("RADIO 2", 18, 54); return c; })()); radio.encoding = t.sRGBEncoding;
+    add(box(.3, .085, .02), piano, 0, .005, .03, -.12, 0, 0, stack); add(new t.PlaneGeometry(.12, .03), new t.MeshBasicMaterial({ map: radio }), 0, .01, .041, -.12, 0, 0, stack);
+    for (const sx of [-1, 0, 1]) { add(new t.CylinderGeometry(.022, .022, .022, 24), silver, sx * .1, -.09, .035, Math.PI / 2 - .12, 0, 0, stack); add(new t.CylinderGeometry(.017, .017, .024, 24), hard, sx * .1, -.09, .038, Math.PI / 2 - .12, 0, 0, stack); }
+    // centre console between the seats, gear lever in its gaiter, handbrake lever on the driver's side of it
+    add(box(.26, .22, .9), hard, 0, .42, -.2);
+    add(box(.2, .006, .25), silver, 0, .535, -.42);
+    add(new t.ConeGeometry(.05, .07, 16, 1, true), leather, 0, .565, -.42);
+    const lever = new t.Group(); lever.position.set(0, .54, -.42); g.add(lever);
+    add(new t.CylinderGeometry(.008, .01, .16, 10), silver, 0, .08, 0, 0, 0, 0, lever);
+    add(new t.SphereGeometry(.028, 20, 14), leather, 0, .17, 0, 0, 0, 0, lever); add(new t.TorusGeometry(.024, .003, 6, 24), silver, 0, .165, 0, Math.PI / 2, 0, 0, lever);
+    const hb = new t.Group(); hb.position.set(.1, .54, -.02); g.add(hb);
+    add(box(.035, .03, .26), leather, 0, .01, -.12, 0, 0, 0, hb); add(new t.CylinderGeometry(.006, .006, .02, 10), silver, 0, .03, -.24, 0, 0, 0, hb);
+    // pedals: clutch, brake, accelerator (the accelerator hangs from the top)
+    const pedal = (x, w, h, y, z, hang) => { const p = new t.Group(); p.position.set(x, y, z); g.add(p); add(box(.02, .02, hang ? .3 : .26), silver, 0, hang ? -.0 : .0, hang ? .0 : -.13, 0, 0, 0, p); const pad = add(box(w, h, .015), M(0x1a1c1f, .6, .3), 0, hang ? -.13 : -.02, hang ? .0 : -.0, .4, 0, 0, p); pad.position.set(0, hang ? -.15 : -.12, hang ? .02 : 0); return p; };
+    const pedals = { clutch: pedal(.23, .07, .06, .58, -.98), brake: pedal(.37, .08, .065, .58, -.98), gas: pedal(.5, .045, .11, .62, -1.02, true) };
+    // door cards with an armrest and window switches
+    for (const sx of [-1, 1]) { add(box(.04, .5, 1.05), soft, sx * .86, .78, -.32); add(box(.08, .04, .4), leather, sx * .82, .78, -.2); add(box(.06, .012, .1), silver, sx * .815, .806, -.28); add(box(.02, .012, 1.0), silver, sx * .84, 1.0, -.32); }
+    // stalks either side of the column: indicators on the right (Japanese layout), wipers on the left
+    const stalk = side => { const s = new t.Group(); s.position.set(.37 + side * .07, .87, -.68); g.add(s); add(new t.CylinderGeometry(.008, .01, .14, 10), hard, side * .07, 0, 0, 0, 0, Math.PI / 2, s); add(new t.CylinderGeometry(.011, .011, .03, 12), silver, side * .135, 0, 0, 0, 0, Math.PI / 2, s); return s; };
+    const stalkR = stalk(1), stalkL = stalk(-1);
+    add(new t.CylinderGeometry(.045, .055, .18, 16), hard, .37, .85, -.7, Math.PI / 2 - .5, 0, 0);   // column shroud
+    return { cv, ctx: cv.getContext("2d"), tex, bg: faces(), lever, hb, pedals, stalkR, stalkL, n: { tach: 0, speedo: 0, fuel: 0, temp: 0 }, t: 0, drawT: -1, odo: 0 };
+  }
+
+  // the three-spoke wheel with silver inserts and buttons (replaces the plain wheel's spokes; the rim and top marker stay)
+  function wheel(w) {
+    const t = T(), silver = new t.MeshStandardMaterial({ color: 0x9aa0a8, roughness: .35, metalness: .8 }), dark = new t.MeshStandardMaterial({ color: 0x141518, roughness: .7 });
+    w.children.slice().forEach(c => { if (c.geometry && c.geometry.type === "BoxGeometry" && c.geometry.parameters.width > .1) w.remove(c); });   // the old spokes
+    const add = (geo, mat, x, y, z, rz = 0) => { const m = new t.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.z = rz; w.add(m); return m; };
+    const pad = add(new t.CylinderGeometry(.06, .065, .05, 24), dark, 0, -.005, .01); pad.rotation.x = Math.PI / 2; pad.scale.set(1.25, 1, .95);
+    for (const sx of [-1, 1]) { add(new t.BoxGeometry(.11, .032, .02), dark, sx * .11, -.015, 0); add(new t.BoxGeometry(.08, .005, .022), silver, sx * .11, .003, .002); for (let i = 0; i < 2; i++) add(new t.BoxGeometry(.014, .01, .008), silver, sx * .095 + sx * i * .02, -.022, .012); }
+    add(new t.BoxGeometry(.03, .1, .02), dark, 0, -.11, 0); add(new t.BoxGeometry(.006, .09, .022), silver, 0, -.1, .002);
+    add(new t.TorusGeometry(.012, .002, 6, 20), silver, 0, .005, .037);   // badge
+  }
+
+  // ───────── every frame: needles, lights, the trip display, and the moving controls
+  function update(I, s, dt) {
+    const car = s.car, c = s.ctl || {}, n = I.n; I.t += dt;
+    if (car.engineOn && !I.wasOn) I.sweepT = 0; I.wasOn = car.engineOn;
+    I.sweepT = (I.sweepT ?? 0) + dt; I.odo += Math.abs(car.v) * dt;
+    if (car.engineOn) I.warm = Math.min(1, (I.warm ?? (s.coldStart ? 0 : .8)) + dt / 150); I.fuel = Math.max(.02, (I.fuel ?? s.fuel0 ?? .62) - Math.max(0, c.throttle || 0) * car.rpm * dt * 1.5e-8);
+    // the needle sweep when the engine starts, then real values
+    const sw = I.sweepT < 1.6 ? Math.sin(Math.min(1, I.sweepT / 1.6) * Math.PI) : -1;
+    const tgt = { tach: sw >= 0 ? sw * 8 : car.engineOn ? car.rpm / 1000 : 0, speedo: sw >= 0 ? sw * 160 : car.mph, fuel: I.fuel, temp: car.engineOn ? .15 + .35 * (I.warm ?? 0) : n.temp };
+    const k = 1 - Math.exp(-dt * 14); for (const key of ["tach", "speedo"]) n[key] += (tgt[key] - n[key]) * k; for (const key of ["fuel", "temp"]) n[key] += (tgt[key] - n[key]) * (1 - Math.exp(-dt * 2));
+    // the controls you can see
+    const gp = { "-1": [-.05, -1], 0: [0, 0], 1: [-.03, -1], 2: [-.03, 1], 3: [0, -1], 4: [0, 1], 5: [.03, -1], 6: [.03, 1] }[car.gear] || [0, 0];
+    I.lx = (I.lx ?? 0) + (gp[0] * 6 - (I.lx ?? 0)) * Math.min(1, dt * 14); I.lz = (I.lz ?? 0) + (gp[1] * .3 - (I.lz ?? 0)) * Math.min(1, dt * 14);
+    I.lever.rotation.set(I.lz, 0, -I.lx);
+    I.hb.rotation.x += ((car.handbrake ? .32 : .02) - I.hb.rotation.x) * Math.min(1, dt * 10);
+    I.pedals.clutch.rotation.x = (c.clutch || 0) * .45; I.pedals.brake.rotation.x = (c.brake || 0) * .35; I.pedals.gas.rotation.x = (c.throttle || 0) * .3;
+    I.stalkR.rotation.z += ((car.ind === "R" ? .14 : car.ind === "L" ? -.14 : 0) - I.stalkR.rotation.z) * Math.min(1, dt * 16);
+    I.stalkL.rotation.z = car.wipers ? -.1 : 0;
+    // redraw the cluster 30 times a second (less in the headset)
+    if (I.t - I.drawT < (s.inVR ? 1 / 20 : 1 / 30)) return; I.drawT = I.t;
+    const g = I.ctx; g.drawImage(I.bg, 0, 0);
+    const needle = (d, a, len) => { g.save(); g.translate(d.x, d.y); g.rotate(a); g.shadowColor = "rgba(255,40,20,.7)"; g.shadowBlur = 10; g.fillStyle = RED; g.beginPath(); g.moveTo(-d.r * .14, -4); g.lineTo(d.r * len, -1.2); g.lineTo(d.r * len, 1.2); g.lineTo(-d.r * .14, 4); g.closePath(); g.fill(); g.restore(); g.fillStyle = "#1a1d22"; g.beginPath(); g.arc(d.x, d.y, d.r * .12, 0, 7); g.fill(); g.strokeStyle = "#3a4048"; g.lineWidth = 2; g.stroke(); };
+    needle(D.tach, A0 + Math.min(8.2, n.tach) / 8 * SWEEP, .9); needle(D.speedo, A0 + Math.min(165, n.speedo) / 160 * SWEEP, .9);
+    needle(D.aux, FUEL.a0 + (FUEL.a1 - FUEL.a0) * n.fuel, .82); needle(D.aux, TEMP.a0 + (TEMP.a1 - TEMP.a0) * n.temp, .82);
+    // trip display: odometer, outside temperature and the time, and the gear you're in
+    const sp = D.speedo; g.fillStyle = "#e9eef3"; g.font = "600 17px monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    const now = new Date(), hh = String(now.getHours()).padStart(2, "0"), mm = String(now.getMinutes()).padStart(2, "0");
+    g.fillText(`${hh}:${mm}   ${s.cond === "rain" ? 9 : 12}°C`, sp.x, sp.y + 84);
+    g.fillText(`ODO ${String(Math.floor(48213 + I.odo / 1609.34)).padStart(6, " ")} mi`, sp.x, sp.y + 106);
+    // warning lights: bulb check for the first 2 s with the ignition on; battery, oil and engine while the engine is off
+    const check = I.t < 2.2, blink = (s.t % .8) < .4, off = !car.engineOn;
+    const on = { indL: car.ind === "L" && blink, indR: car.ind === "R" && blink, beam: !!car.lights, battery: off, oil: off, engine: off, brake: !!car.handbrake, abs: false, belt: false };
+    g.textAlign = "center"; g.textBaseline = "middle";
+    for (const [k2, x, y, col, ic, sz] of LIGHTS) { const lit = check || on[k2]; g.fillStyle = lit ? col : "#15181c"; g.strokeStyle = lit ? col : "#15181c"; if (lit) { g.shadowColor = col; g.shadowBlur = 12; } ICON[ic](g, x, y, sz); g.shadowBlur = 0; }
+    I.tex.needsUpdate = true;
+  }
+
+  window.SimMazda = { build, wheel, update };
 })();
 
 </script>
@@ -1881,17 +2097,17 @@
     // the bonnet: the front of your own car's body (same shape and width as the car seen from outside), so its edges
     // and the dip of the nose show where the car really ends; the wings either side mark the front corners
     const P = window.SimTraffic.profile;
-    const bonnet = new t.Mesh(P([[-2.17, .3], [-2.2, .62], [-2.05, .8], [-1.25, .92], [-.86, .93], [-.86, .3]], 1.78, .06), paint); g.add(bonnet);
+    const MZ = window.SimTraffic.MZ, DIM = window.SimCar.DIM;   // your car is the Mazda 6: the same shapes as its outside
+    const bonnet = new t.Mesh(P(MZ.bonnet, DIM.wid, .07), paint); g.add(bonnet);
     // dashboard: low, dark, slightly curved top edge
     const dash = new t.Mesh(new t.BoxGeometry(1.72, .26, .62), dashM); dash.position.set(0, .82, -1.0); g.add(dash);
     const top = new t.Mesh(new t.BoxGeometry(1.72, .035, .56), topM); top.position.set(0, .955, -.98); top.rotation.x = .08; g.add(top);
-    const binn = new t.Mesh(new t.CylinderGeometry(.16, .16, .38, 20, 1, false, 0, Math.PI), dashM); binn.rotation.z = Math.PI / 2; binn.rotation.y = 0; binn.position.set(.37, .97, -.9); binn.scale.set(.55, .5, .6); g.add(binn);
-    // A-pillars: thin, from the dash corners up and back to the roof
+        // A-pillars: thin, from the dash corners up and back to the roof
     for (const sx of [-1, 1]) { const p = new t.Mesh(new t.BoxGeometry(.045, 1.0, .08), dashM); p.position.set(sx * .77, 1.43, -.74); p.rotation.x = .6; p.rotation.z = -sx * .06; g.add(p); }
     const header = new t.Mesh(new t.BoxGeometry(1.5, .07, .16), dashM); header.position.set(0, 1.86, -.38); g.add(header);
     // steering wheel (rotates with the input)
     const wheel = new t.Group(); wheel.position.set(.37, .9, -.6); wheel.rotation.x = -.5; g.add(wheel);
-    const rim = new t.Mesh(new t.TorusGeometry(.175, .024, 12, 48), new t.MeshStandardMaterial({ color: 0x111316, roughness: .75 })); wheel.add(rim);
+    const rim = new t.Mesh(new t.TorusGeometry(.18, .027, 14, 56), new t.MeshStandardMaterial({ color: 0x111316, roughness: .75 })); wheel.add(rim);
     const hub = new t.Mesh(new t.CylinderGeometry(.055, .065, .05, 18), trimM); hub.rotation.x = Math.PI / 2; wheel.add(hub);
     for (const a of [0, Math.PI, -Math.PI / 2]) { const sp = new t.Mesh(new t.BoxGeometry(.13, .022, .018), trimM); sp.position.set(Math.cos(a) * .1, Math.sin(a) * .1, 0); sp.rotation.z = a; wheel.add(sp); }
     const mark = new t.Mesh(new t.BoxGeometry(.028, .018, .03), new t.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff8800, emissiveIntensity: .7 })); mark.position.set(0, .175, 0); wheel.add(mark);
@@ -1902,18 +2118,20 @@
     const shelf = new t.Mesh(new t.BoxGeometry(1.45, .04, .5), dashM); shelf.position.set(0, 1.05, 1.75); g.add(shelf);
     for (const sx of [-1, 1]) { const cp = new t.Mesh(new t.BoxGeometry(.12, .9, .3), dashM); cp.position.set(sx * .7, 1.45, 1.6); cp.rotation.x = -.5; g.add(cp); }
     const roofBack = new t.Mesh(new t.BoxGeometry(1.4, .06, .2), dashM); roofBack.position.set(0, 1.85, 1.35); g.add(roofBack);
-    const boot = new t.Mesh(P([[1.62, .3], [1.62, .935], [2.08, .88], [2.18, .62], [2.15, .3]], 1.78, .06), paint); g.add(boot);   // the back of your car, seen when you look round
+    const boot = new t.Mesh(P(MZ.boot, DIM.wid, .07), paint); g.add(boot);   // the back of your car, seen when you look round
     // mirrors: interior (top middle, to the driver's left), right door, left door
     const mk = (w, h, tex, pos, rot) => { const fr = new t.Mesh(new t.BoxGeometry(w + .03, h + .03, .03), dashM); fr.position.copy(pos); fr.rotation.set(rot.x, rot.y, 0); g.add(fr); const m = new t.Mesh(new t.PlaneGeometry(w, h), new t.MeshBasicMaterial({ map: tex })); m.position.set(0, 0, .018); m.layers.set(1); fr.add(m); return fr; };   // glass on layer 1: mirror cameras never see their own texture
     mk(.26, .075, mirrorTex.c, new t.Vector3(.04, 1.54, -.72), { x: .12, y: -.2 });
     mk(.16, .11, mirrorTex.r, new t.Vector3(.95, 1.1, -.86), { x: 0, y: -.45 });
     mk(.16, .11, mirrorTex.l, new t.Vector3(-.95, 1.1, -.86), { x: 0, y: .6 });
-    return { wheel };
+    // the inside of a 2012 Mazda 6: live dials, warning lights, gear lever, pedals, handbrake, stalks (mazda.js)
+    const mz = window.SimMazda ? window.SimMazda.build(g) : null; if (mz) window.SimMazda.wheel(wheel);
+    return { wheel, mz };
   }
 
   // ───────── dash screen, top middle of the dash like a modern hatchback: reversing camera with guide lines in reverse,
   // a 360° view from above when slow, a map-like view when driving. Drawn into a texture, so it is in the headset too.
-  const SCR_W = 384, SCR_H = 240, RB = 2.2, PN = 26;   // RB: rear bumper, car-local; PN: points along each path line
+  const SCR_W = 384, SCR_H = 240, PN = 26, RB = () => window.SimCar.DIM.rear, HW = () => window.SimCar.DIM.half;   // RB: rear bumper, car-local; PN: points along each path line
   const SCR_MODES = ["auto", "cam", "360", "map", "off"], SCR_NAME = { auto: "Auto", cam: "Reversing camera", "360": "360° view", map: "Map", off: "Off" };
   function buildDashScreen(rig) {
     const t = T(), g = new t.Group(); g.position.set(-.02, 1.04, -.8); g.rotation.order = "YXZ"; g.rotation.set(-.3, .22, 0); rig.add(g);
@@ -1932,7 +2150,7 @@
     const guides = new t.Group(); guides.visible = false; rig.add(guides);
     const flat = (w, d, col, x, z) => { const m = new t.Mesh(new t.PlaneGeometry(w, d), new t.MeshBasicMaterial({ color: col, transparent: true, opacity: .85, depthTest: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, .03, z); m.layers.set(3); m.renderOrder = 5; guides.add(m); };
     // fixed distance marks: red 0.5 m, amber 1 m, green 2 m behind the bumper, with the car's width either side
-    [[0, .5, 0xff3b30], [.5, 1, 0xffcc00], [1, 2, 0x34c759]].forEach(([a, b, col]) => { for (const sx of [-1, 1]) { flat(.035, b - a, col, sx * .89, RB + (a + b) / 2); flat(.3, .035, col, sx * .755, RB + b); } });
+    [[0, .5, 0xff3b30], [.5, 1, 0xffcc00], [1, 2, 0x34c759]].forEach(([a, b, col]) => { for (const sx of [-1, 1]) { flat(.035, b - a, col, sx * HW(), RB() + (a + b) / 2); flat(.3, .035, col, sx * (HW() - .135), RB() + b); } });
     // where the back corners will go with the wheel where it is now (yellow, bends as you steer)
     const path = [0, 1].map(() => {
       const geo = new t.BufferGeometry(), idx = []; geo.setAttribute("position", new t.BufferAttribute(new Float32Array(PN * 6), 3));
@@ -1947,7 +2165,7 @@
     const arr = D.path.map(m => m.geometry.attributes.position.array);
     for (let i = 0; i < PN; i++) {
       const d = { x: Math.sin(yaw), z: -Math.cos(yaw) }, r = { x: Math.cos(yaw), z: Math.sin(yaw) };
-      [-1, 1].forEach((sx, k) => { const cx = x + r.x * sx * .89 - d.x * RB, cz = z + r.z * sx * .89 - d.z * RB, w = .028; arr[k].set([cx - r.x * w, .03, cz - r.z * w, cx + r.x * w, .03, cz + r.z * w], i * 6); });
+      [-1, 1].forEach((sx, k) => { const cx = x + r.x * sx * HW() - d.x * RB(), cz = z + r.z * sx * HW() - d.z * RB(), w = .028; arr[k].set([cx - r.x * w, .03, cz - r.z * w, cx + r.x * w, .03, cz + r.z * w], i * 6); });
       const rx = x - d.x * WB / 2, rz = z - d.z * WB / 2; yaw += -ds * Math.tan(steer) / WB;
       const nx = rx - Math.sin(yaw) * ds, nz = rz + Math.cos(yaw) * ds; x = nx + Math.sin(yaw) * WB / 2; z = nz - Math.cos(yaw) * WB / 2;
     }
@@ -2026,7 +2244,7 @@
       this.dash = buildDashScreen(this.rig);
       this.beam = new t.SpotLight(0xfff1d6, 0, 75, .55, .55, 1.1); this.beam.position.set(0, .8, -2.3); this.beam.target.position.set(0, -.6, -26); this.rig.add(this.beam); this.rig.add(this.beam.target);
       this.canvas.insertAdjacentHTML("afterend", '<div class="sim-wet" hidden></div>'); this.wet = this.root.querySelector(".sim-wet");
-      this.body = window.SimTraffic.carMesh(0x2c63d8); this.body.visible = false; this.rig.add(this.body);   // for mirrors of other cars? (hidden from own camera)
+      this.body = window.SimTraffic.mazdaMesh(0x2c63d8); this.body.visible = false; this.rig.add(this.body);   // for mirrors of other cars? (hidden from own camera)
       // scenario sets up the car and the traffic
       const ctx = this.ctx();
       this.car = null; this.scn.setup(ctx);
@@ -2335,6 +2553,7 @@
       if (inVR) { VRx().placeHead(this); VRx().drawCard(this); }   // cards (briefing, pause, results) become a panel you point at
       else { this.head.position.set(.37, 1.22, -.08); this.head.rotation.set(this.headPitch, this.headYaw, 0, "YXZ"); }
       this.cock.wheel.rotation.z = -(window.SimInput.wheelDeg || 0) * Math.PI / 180;
+      if (this.cock.mz) { this.inVR = inVR; window.SimMazda.update(this.cock.mz, this, Math.min(.1, Math.max(0, this.t - (this.mzT ?? this.t)))); this.mzT = this.t; }
       // sun follows the car so shadows stay sharp nearby
       this.sun.position.set(car.x - 60, 90, car.z + 40); this.sun.target.position.set(car.x, 0, car.z);
       const R = this.renderer;
@@ -2463,7 +2682,7 @@
       if (!w.onRoad) return null;
       let best = 9;
       for (const a of [-1.9, 0, 1.9]) {
-        const bx = car.x + d.x * a + l.x * s * .92, bz = car.z + d.z * a + l.z * s * .92;
+        const bx = car.x + d.x * a + l.x * s * window.SimCar.DIM.half, bz = car.z + d.z * a + l.z * s * window.SimCar.DIM.half;
         if (!w.onRoad(bx, bz)) { best = Math.min(best, 0); continue; }
         for (let k = .02; k < 3; k += .02) if (!w.onRoad(bx + l.x * s * k, bz + l.z * s * k)) { best = Math.min(best, k); break; }
       }
@@ -2474,7 +2693,7 @@
       if (ov.pip) {
         this.pipCam = new t.OrthographicCamera(-12, 12, 9, -9, 1, 200);
         // a bright outline of your car so it stands out from above
-        const outline = new t.Mesh(new t.PlaneGeometry(1.9, 4.7), new t.MeshBasicMaterial({ color: 0x3d7dff, transparent: true, opacity: .55 })); outline.rotation.x = -Math.PI / 2; outline.position.y = 1.9;
+        const outline = new t.Mesh(new t.PlaneGeometry(window.SimCar.DIM.wid + .1, window.SimCar.DIM.len), new t.MeshBasicMaterial({ color: 0x3d7dff, transparent: true, opacity: .55 })); outline.rotation.x = -Math.PI / 2; outline.position.set(0, 1.9, (window.SimCar.DIM.rear - window.SimCar.DIM.front) / 2);
         this.pipCar = new t.Group(); this.pipCar.add(outline); this.pipCar.visible = false; this.rig.add(this.pipCar);
       }
       if (ov.shoulder && this.mode === "practice") {
@@ -3329,7 +3548,7 @@
         if (Math.abs(car.v) > .3) d.moved = true;
         if (car.v < -.3 || (forward && d.phase === "out")) reverseObs(ctx, dt, d);
         if (!d.moved) ctx.hint("start", forward ? "First gear, check all round, then creep along the aisle on the right-hand side." : "Reverse gear (R), look all round (V, Z, C), then reverse slowly along the aisle and turn in.", 8);
-        const inBay = () => { const cs = car.corners(), bx = d.tgt.x; return cs.every(c => c.x > bx - 1.2 - .05 && c.x < bx + 1.2 + .05 && c.z < -3 + .1 && c.z > -7.8 - .1); };
+        const inBay = () => { const cs = car.corners(), bx = d.tgt.x; return cs.every(c => c.x > bx - 1.2 - .05 && c.x < bx + 1.2 + .05 && c.z < -3 + .2 && c.z > -7.8 - .2); };   // a Mazda 6 leaves only ~2 cm each end of a 4.8 m bay
         if (!forward || d.phase !== "out") coach(ctx, dt, d, d.tgt, "bay");
         const judgeBay = () => {
           const cs = car.corners(), bx = d.tgt.x, p = pose(car, d.tgt);
@@ -3511,11 +3730,11 @@
   }
   // where the four corners will go for the steering on now: same rear-axle model as the car itself
   function fpPredict(car, sign, dist) {
-    const WB = window.SimCar.WB, tn = Math.tan(car.steer), ds = .15, out = [[], [], [], []];
+    const WB = window.SimCar.WB, DM = window.SimCar.DIM, tn = Math.tan(car.steer), ds = .15, out = [[], [], [], []];
     let yaw = car.yaw, rx = car.x - Math.sin(yaw) * WB / 2, rz = car.z + Math.cos(yaw) * WB / 2;
     for (let s = 0; s <= dist + 1e-6; s += ds) {
       const dx = Math.sin(yaw), dz = -Math.cos(yaw), cx = rx + dx * WB / 2, cz = rz + dz * WB / 2, lx = dz, lz = -dx;
-      [[1, 1], [1, -1], [-1, -1], [-1, 1]].forEach(([a, b], i) => out[i].push([cx + dx * 2.3 * a + lx * .92 * b, cz + dz * 2.3 * a + lz * .92 * b]));
+      [[DM.front, 1], [DM.front, -1], [-DM.rear, -1], [-DM.rear, 1]].forEach(([a, b], i) => out[i].push([cx + dx * a + lx * DM.half * b, cz + dz * a + lz * DM.half * b]));
       yaw += sign * ds * tn / WB; rx += sign * ds * Math.sin(yaw); rz -= sign * ds * Math.cos(yaw);
     }
     return out;
@@ -7064,21 +7283,39 @@
     let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let i = 0; i < xy.length; i += 2) { x0 = Math.min(x0, xy[i]); x1 = Math.max(x1, xy[i]); z0 = Math.min(z0, xy[i + 1]); z1 = Math.max(z1, xy[i + 1]); }
     const places = PLACES.filter(([, lat, lon, k]) => { const [x, z] = toXZ(lat, lon, k); return x > x0 && x < x1 && z > z0 && z < z1; });
     // every road as one path per kind, drawn in metres and scaled by the canvas
+    // everything on the map as paths in metres, built once: roads by size, parks and water, buildings, railways, and label spots
     const P = OSM._mapPaths || (OSM._mapPaths = (() => {
-      const kinds = { big: new Path2D(), mid: new Path2D(), small: new Path2D(), rb: new Path2D() };
+      const kinds = { big: new Path2D(), mid: new Path2D(), small: new Path2D(), rb: new Path2D(), bld: new Path2D(), rail: new Path2D(), areas: {} };
       for (const r of d.roads) {
         const k = r.r ? "rb" : r.c <= 2 ? "big" : r.c <= 5 ? "mid" : "small", p = kinds[k];
         r.p.forEach((n, i) => i ? p.lineTo(xy[n * 2], xy[n * 2 + 1]) : p.moveTo(xy[n * 2], xy[n * 2 + 1]));
       }
+      for (const A of d.areaList || []) { const p = kinds.areas[A.k] || (kinds.areas[A.k] = new Path2D()); A.poly.forEach(([x, z], i) => i ? p.lineTo(x, z) : p.moveTo(x, z)); p.closePath(); }
+      for (let i = 0; i < d.bld.length;) { const n = d.bld[i + 1]; for (let k = 0; k < n; k++) { const x = d.bld[i + 2 + k * 2], z = d.bld[i + 3 + k * 2]; k ? kinds.bld.lineTo(x, z) : kinds.bld.moveTo(x, z); } kinds.bld.closePath(); i += 2 + n * 2; }
+      for (const r of d.rails || []) for (let i = 0; i + 1 < r.p.length; i += 2) i ? kinds.rail.lineTo(r.p[i], r.p[i + 1]) : kinds.rail.moveTo(r.p[i], r.p[i + 1]);
+      // a street name sits on the longest straight bit of each named road, turned to read along it
+      kinds.labels = [];
+      for (const r of d.roads) {
+        if (r.n < 0 || r.r) continue; let best = null, tot = 0;
+        for (let j = 0; j < r.p.length - 1; j++) { const a2 = r.p[j], b2 = r.p[j + 1], dx = xy[b2 * 2] - xy[a2 * 2], dz = xy[b2 * 2 + 1] - xy[a2 * 2 + 1], L = Math.hypot(dx, dz); tot += L; if (!best || L > best.L) best = { L, x: (xy[a2 * 2] + xy[b2 * 2]) / 2, z: (xy[a2 * 2 + 1] + xy[b2 * 2 + 1]) / 2, a: Math.atan2(dz, dx) }; }
+        if (best && tot > 30) kinds.labels.push({ ...best, tot, name: d.names[r.n].replace(/\s*\(.*\)$/, ""), c: r.c });
+      }
+      kinds.labels.sort((p2, q) => p2.c - q.c || q.L - p2.L);
+      kinds.pois = []; for (let i = 0; i < (d.pois || []).length; i += 4) { const name = d.names[d.pois[i + 3]]; if (name) kinds.pois.push({ x: d.pois[i], z: d.pois[i + 1], name }); }
       return kinds;
     })());
+    // satellite photos: the same Mapbox key as the satellite ground in Drive > Options
+    const KEY = (window.SimInput.opts.mapboxToken || "").trim(), SATT = OSM._satTiles || (OSM._satTiles = new Map());
+    const tileLL = (tx, ty, z) => { const n = 2 ** z, lon = tx / n * 360 - 180, lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * ty / n))) * 180 / Math.PI; return [lat, lon]; };
+    const tileOf = (lat, lon, z) => { const n = 2 ** z, r = lat * Math.PI / 180; return [(lon + 180) / 360 * n, (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n]; };
+    let sat = false; try { sat = !!KEY && localStorage.getItem("tr.mapSat") === "1"; } catch (e) { }
     host.innerHTML = `<div class="osmpick" style="display:grid;gap:10px">
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center">${places.map(([n], i) => `<button class="btn ghost small" data-pl="${i}">${n}</button>`).join("")}${opts.car ? `<button class="btn ghost small" data-pl="car">Where I am</button>` : ""}
-        <span style="flex:1"></span><button class="btn ghost small" data-z="1.6" title="Zoom in">+</button><button class="btn ghost small" data-z="0.625" title="Zoom out">−</button></div>
+        <span style="flex:1"></span><button class="btn ghost small" data-sat title="${KEY ? "Satellite photos (Mapbox)" : "Satellite needs your free Mapbox key: Drive > Options > Satellite ground"}"${KEY ? "" : " disabled"}>${sat ? "Map" : "Satellite"}</button><button class="btn ghost small" data-z="1.6" title="Zoom in">+</button><button class="btn ghost small" data-z="0.625" title="Zoom out">−</button></div>
       <canvas style="width:100%;height:min(58vh,520px);border-radius:12px;cursor:crosshair;touch-action:none;background:#1b2128;display:block"></canvas>
       <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><span class="sub osmpick-info" style="flex:1;min-width:220px">Click any road to start there. Drag to move, scroll to zoom.</span>
         <button class="btn ghost small" data-flip hidden>Face the other way</button>${opts.cancel ? `<button class="btn ghost small" data-cancel>Cancel</button>` : ""}<button class="btn" data-go disabled>${opts.goLabel || "Start here"}</button></div>
-      <span class="sub" style="font-size:11px;opacity:.6">Map data © OpenStreetMap contributors</span></div>`;
+      <span class="sub osmpick-credit" style="font-size:11px;opacity:.6">${sat ? "Imagery © Mapbox © Maxar · " : ""}Map data © OpenStreetMap contributors</span></div>`;
     const cv = host.querySelector("canvas"), g = cv.getContext("2d"), info = host.querySelector(".osmpick-info"), goB = host.querySelector("[data-go]"), flipB = host.querySelector("[data-flip]");
     let scale = .16, cx = 0, cz = 0, sel = null, pick = null, flip = false, hover = null;
     if (opts.car) { cx = opts.car.x; cz = opts.car.z; scale = .6; }
@@ -7086,11 +7323,34 @@
     const size = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(10, r.width * dpr); cv.height = Math.max(10, r.height * dpr); };
     const toWorld = (px, py) => [cx + (px * dpr - cv.width / 2) / (scale * dpr), cz + (py * dpr - cv.height / 2) / (scale * dpr)];
     function draw() {
-      const W = cv.width, H = cv.height, s = scale * dpr; g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = "#1b2128"; g.fillRect(0, 0, W, H);
+      const W = cv.width, H = cv.height, s = scale * dpr; g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = sat ? "#0b0d10" : "#1b2128"; g.fillRect(0, 0, W, H);
+      if (sat) satTiles(W, H, s);
       g.setTransform(s, 0, 0, s, W / 2 - cx * s, H / 2 - cz * s); g.lineCap = g.lineJoin = "round";
       const line = (p, col, px, min) => { g.strokeStyle = col; g.lineWidth = Math.max(px / s, min || 0); g.stroke(p); };
-      line(P.small, "#39424d", 1.2, 4); line(P.mid, "#56616e", 1.6, 7); line(P.rb, "#8b96a3", 1.8, 8); line(P.big, "#c99a4a", 2.4, 10);
+      if (!sat) {
+        const AC = { 1: "#22382a", 2: "#25402b", 3: "#273a2c", 4: "#2a3038", 5: "#2b2f35", 6: "#1d3c56", 7: "#1f3626", 8: "#2a3a27" };
+        for (const [k, p] of Object.entries(P.areas)) { g.fillStyle = AC[k] || "#252c27"; g.fill(p); }
+        if (scale > .3) { g.fillStyle = "#323a45"; g.fill(P.bld); if (scale > 1) { g.strokeStyle = "#3e4754"; g.lineWidth = 1 / s; g.stroke(P.bld); } }
+        g.setLineDash([6 / s, 5 / s]); line(P.rail, "#8b8f96", 1.4); g.setLineDash([]);
+        line(P.small, "#3f4955", 1.2, 4); line(P.mid, "#5d6977", 1.6, 7); line(P.rb, "#8b96a3", 1.8, 8); line(P.big, "#c99a4a", 2.4, 10);
+      } else { g.globalAlpha = .55; line(P.small, "#ffffff", .8); line(P.mid, "#ffffff", 1.2); line(P.rb, "#ffffff", 1.2); line(P.big, "#ffd27a", 1.8); g.globalAlpha = 1; }
       g.setTransform(1, 0, 0, 1, 0, 0);
+      // street names (zoomed in), then shops and places; no label on top of another
+      const taken = [], free = (x, y, w, h) => { if (x < 0 || y < 0 || x > W || y > H) return false; for (const t2 of taken) if (Math.abs(t2[0] - x) * 2 < t2[2] + w && Math.abs(t2[1] - y) * 2 < t2[3] + h) return false; taken.push([x, y, w, h]); return true; };
+      const halo = (txt, x, y) => { g.lineWidth = 3 * dpr; g.strokeStyle = sat ? "rgba(0,0,0,.85)" : "#1b2128"; g.strokeText(txt, x, y); g.fillText(txt, x, y); };
+      g.textAlign = "center"; g.textBaseline = "middle";
+      if (scale > .45) {
+        g.font = `600 ${11 * dpr}px system-ui,sans-serif`; g.fillStyle = sat ? "#fff" : "#c9d3de"; const seen = new Set();
+        for (const L of P.labels) {
+          if (L.c > 5 && scale < 1.2) continue;
+          const x = W / 2 + (L.x - cx) * s, y = H / 2 + (L.z - cz) * s; if (x < -50 || y < -50 || x > W + 50 || y > H + 50) continue;
+          const tw = g.measureText(L.name).width; if (tw > Math.max(L.L * 2.2, L.tot * .8) * s || (seen.has(L.name) && scale < 1.5)) continue;
+          let a = L.a; if (a > Math.PI / 2) a -= Math.PI; if (a < -Math.PI / 2) a += Math.PI;
+          const bw = Math.abs(Math.cos(a)) * tw + 14 * dpr, bh = Math.abs(Math.sin(a)) * tw + 14 * dpr; if (!free(x, y, bw, bh)) continue; seen.add(L.name);
+          g.save(); g.translate(x, y); g.rotate(a); halo(L.name, 0, 0); g.restore();
+        }
+      }
+      if (scale > 1.1) { g.font = `500 ${10 * dpr}px system-ui,sans-serif`; for (const q of P.pois) { const x = W / 2 + (q.x - cx) * s, y = H / 2 + (q.z - cz) * s, tw = g.measureText(q.name).width; if (!free(x, y - 9 * dpr, tw + 10 * dpr, 14 * dpr)) continue; g.fillStyle = "#e0a96d"; g.beginPath(); g.arc(x, y, 3 * dpr, 0, 7); g.fill(); g.fillStyle = sat ? "#fff" : "#e8d2b4"; halo(q.name, x, y - 9 * dpr); } }
       const sp = (x, z) => [W / 2 + (x - cx) * s, H / 2 + (z - cz) * s];
       // town names, and the test centre
       g.font = `600 ${12 * dpr}px system-ui,sans-serif`; g.textAlign = "center";
@@ -7107,6 +7367,19 @@
       info.innerHTML = `<b>${sel.name.replace(/[<&]/g, "")}</b> · ${sel.limit} mph · facing ${COMPASS[Math.round(deg / 45) % 8]}${sel.oneway ? " (one-way)" : ""}`;
       goB.disabled = false; flipB.hidden = sel.oneway; draw();
     }
+    // the photo tiles covering the view, at the detail that suits the zoom (loaded once, kept while the app is open)
+    function satTiles(W, H, s) {
+      const z = Math.max(12, Math.min(19, Math.round(Math.log2(156543 * Math.cos(LAT0 * Math.PI / 180) * s))));
+      const toLL = (x, zz) => [LAT0 - zz / KZ, LON0 + x / KX];
+      const [la0, lo0] = toLL(cx - W / 2 / s, cz - H / 2 / s), [la1, lo1] = toLL(cx + W / 2 / s, cz + H / 2 / s), [tx0, ty0] = tileOf(la0, lo0, z), [tx1, ty1] = tileOf(la1, lo1, z);
+      for (let tx = Math.floor(tx0); tx <= Math.floor(tx1); tx++) for (let ty = Math.floor(ty0); ty <= Math.floor(ty1); ty++) {
+        const k = z + "/" + tx + "/" + ty; let T3 = SATT.get(k);
+        if (!T3) { T3 = { img: new Image(), ok: false }; SATT.set(k, T3); T3.img.onload = () => { T3.ok = true; if (document.body.contains(cv)) draw(); }; T3.img.src = `https://api.mapbox.com/v4/mapbox.satellite/${z}/${tx}/${ty}@2x.jpg90?access_token=${encodeURIComponent(KEY)}`; }
+        if (!T3.ok) continue;
+        const [a0, b0] = tileLL(tx, ty, z), [a1, b1] = tileLL(tx + 1, ty + 1, z), [x0, z0] = toXZ(a0, b0), [x1, z1] = toXZ(a1, b1);
+        g.drawImage(T3.img, W / 2 + (x0 - cx) * s, H / 2 + (z0 - cz) * s, (x1 - x0) * s + .5, (z1 - z0) * s + .5);
+      }
+    }
     let drag = null;
     cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx, cz, moved: false }; };
     cv.onpointermove = e => {
@@ -7118,6 +7391,7 @@
     host.onclick = e => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.pl) { if (b.dataset.pl === "car") { cx = opts.car.x; cz = opts.car.z; scale = 1.6; } else { const [, lat, lon, k] = places[+b.dataset.pl]; [cx, cz] = toXZ(lat, lon, k); scale = .6; } draw(); }
+      else if (b.hasAttribute("data-sat")) { sat = !sat; try { localStorage.setItem("tr.mapSat", sat ? "1" : "0"); } catch (e) { } b.textContent = sat ? "Map" : "Satellite"; host.querySelector(".osmpick-credit").textContent = (sat ? "Imagery © Mapbox © Maxar · " : "") + "Map data © OpenStreetMap contributors"; draw(); }
       else if (b.dataset.z) { scale = Math.min(12, Math.max(.06, scale * +b.dataset.z)); draw(); }
       else if (b.hasAttribute("data-flip")) { flip = !flip; choose(); }
       else if (b.hasAttribute("data-cancel")) opts.cancel();
