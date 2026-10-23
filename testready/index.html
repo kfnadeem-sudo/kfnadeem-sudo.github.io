@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0d1117">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
-<style>html,body{margin:0;background:#0d1117;color:#e8eef6;font-family:system-ui,sans-serif}</style>
+<style>html,body{margin:0;background:#0d1117;color:#e8eef6;font-family:system-ui,sans-serif}[hidden]{display:none!important}</style>
 <script>window.QUEST_APP = true;</script>
 <style>
 /* Test Ready simulator overlay + HUD. Sits on top of the app, full window. */
@@ -843,7 +843,12 @@
     return list.find(p => map.id && p.id === map.id) || list.find(p => /G920|G29|Logitech|Driving Force|Wheel/i.test(p.id)) || list[0];
   }
   const axisVal = (p, a) => (p && a && p.axes[a.i] !== undefined) ? p.axes[a.i] : null;
-  function pedal(p, a) { const v = axisVal(p, a); if (v === null) return 0; const t = (v - a.rest) / ((a.full - a.rest) || 1); return Math.max(0, Math.min(1, t)); }
+  function pedalRaw(p, a) { const v = axisVal(p, a); if (v === null) return 0; const t = (v - a.rest) / ((a.full - a.rest) || 1); return Math.max(0, Math.min(1, t)); }
+  // calibrated: a resting foot reads 0 (dz), and the hardest press you'd really use (full) reads 1
+  function pedal(p, a) { const t = pedalRaw(p, a), dz = a && a.dz || 0; return dz ? Math.max(0, Math.min(1, (t - dz) / (1 - dz))) : t; }
+  // your real car's bite point (where you set it in calibration) becomes the sim car's bite point
+  const BITE_SIM = 0.62;
+  function clutchFeel(t, b) { if (!b) return t; return t >= b ? BITE_SIM + (t - b) / (1 - b) * (1 - BITE_SIM) : t / b * BITE_SIM; }
   // a control is either a button index or a D-pad direction { h: axis, v: value }
   const btn = (p, i) => {
     if (!p || i === undefined || i === null) return false;
@@ -858,7 +863,7 @@
     active: false, opts, get map() { return map; },
     saveMap(m) { map = m; store(MAP_KEY, m); }, resetMap() { map = JSON.parse(JSON.stringify(DEFAULT_MAP)); store(MAP_KEY, map); },
     saveOpts() { store(OPT_KEY, opts); },
-    pad, rawPad: () => pad(), btn, HAT, findHat,
+    pad, rawPad: () => pad(), btn, HAT, findHat, pedalRaw, pedal, clutchFeel, BITE_SIM,
     // what a control is called on a G920 (falls back to "Button n")
     label(spec) {
       if (spec === undefined || spec === null) return "not set";
@@ -876,11 +881,13 @@
       let useWheel = false, gearReq = null;
       if (p) {
         const sv = axisVal(p, map.steer);
-        const thr = pedal(p, map.throttle), brk = pedal(p, map.brake), clu = pedal(p, map.clutch);
+        const thr = pedal(p, map.throttle), brk = pedal(p, map.brake), clu = clutchFeel(pedal(p, map.clutch), map.clutch && map.clutch.bite);
         if ((sv !== null && Math.abs(sv) > 0.04) || thr > 0.05 || brk > 0.05 || clu > 0.05 || p.buttons.some(b => b.pressed)) { if (performance.now() - lastKeyT > 400) lastSource = "wheel"; }
         useWheel = lastSource === "wheel";
         if (useWheel) {
-          let s = sv === null ? 0 : (sv - (map.steer.min + map.steer.max) / 2) / ((map.steer.max - map.steer.min) / 2 || 1);
+          // straight ahead is where you set it (c), not just the middle of the axis
+          const S = map.steer, half0 = (S.max - S.min) / 2 || 1, c = S.c ?? (S.min + S.max) / 2;
+          let s = sv === null ? 0 : Math.max(-1, Math.min(1, (sv - c) / half0));
           if (Math.abs(s) < opts.deadzone) s = 0;
           // a 900-degree wheel (set G HUB to 900°): about 13.5:1 like a small hatchback, so the end of the wheel's travel is full lock
           const half = (opts.wheelRange || 900) / 2, steerWheelDeg = s * half, roadRad = steerWheelDeg / (half / (0.58 * 180 / Math.PI)) * Math.PI / 180;   // end of travel = full lock
@@ -901,7 +908,7 @@
       // hand gestures in the headset (the indicator stalk), whatever is steering
       if (window.SimVR && window.SimVR.handQ && window.SimVR.handQ.length) presses.push(...window.SimVR.handQ.splice(0));
       // in the headset: the G920 relayed from the laptop over Wi-Fi, or else the Quest controllers
-      const rem = !useWheel && Input.remote && performance.now() - Input.remote.at < 400 ? Input.remote : null;
+      const rem = !useWheel && Input.remote && Input.remote.wheel !== false && performance.now() - Input.remote.at < 400 ? Input.remote : null;   // only the G920 itself drives from the laptop
       const xr = !useWheel && !rem && window.SimVR && window.SimVR.presenting ? window.SimVR.pads() : null;
       if (rem) {
         Object.assign(k, { steer: rem.steer, throttle: rem.throttle, brake: rem.brake, clutch: rem.clutch }); Input.wheelDeg = rem.wheelDeg;
@@ -1224,7 +1231,7 @@
           if (!(window.Sim && window.Sim.current && window.Sim.current.running)) {
             const c = I.poll(dt, null);
             const pad = I.pad && I.pad(), btn = pad ? [0, 1, 2, 3].map(i => !!(pad.buttons[i] && pad.buttons[i].pressed)) : null;   // A B X Y: they press buttons on the VR menus
-            const s = { steer: +c.steer.toFixed(4), throttle: +c.throttle.toFixed(3), brake: +c.brake.toFixed(3), clutch: +c.clutch.toFixed(3), wheelDeg: Math.round(I.wheelDeg || 0), shifter: I.shifter ?? null, look: c.look, mirror: c.mirror, lookBack: c.lookBack, horn: c.horn, wheel: c.source === "wheel", btn };
+            const s = { steer: +c.steer.toFixed(4), throttle: +c.throttle.toFixed(3), brake: +c.brake.toFixed(3), clutch: +c.clutch.toFixed(3), wheelDeg: Math.round(I.wheelDeg || 0), shifter: I.shifter ?? null, look: c.look, mirror: c.mirror, lookBack: c.lookBack, horn: c.horn, wheel: c.source === "wheel", cal: !!(I.map && I.map.feel), btn };
             this.state = s;
             const QL = window.QLink;
             if (QL && QL.role === "laptop" && QL.connected) { QL.sendFast(s); if (c.presses.length) QL.send("press", c.presses); }
@@ -1336,7 +1343,7 @@
     // for gas, left-hand pinch for the brake. Gears and clutch are done for you; hold the left pinch for 2 s when
     // stopped to swap between drive and reverse.
     hd: { wheel: 0, grips: {}, gearT: 0, revT: 0, presses: [] },
-    wheelLive() { const r = window.SimInput && window.SimInput.remote; return !!(r && performance.now() - r.at < 1500); },
+    wheelLive() { const r = window.SimInput && window.SimInput.remote; return !!(r && r.wheel && performance.now() - r.at < 1500); },
     driveInput(car, dt) {
       if (!H.sim || !H.mount || H.phase === "wheel" || H.phase === "shifter") return null;
       const sim = H.sim, hands = H.read(sim); if (!hands.left && !hands.right) return null;
@@ -1417,8 +1424,8 @@
       <div style="margin-top:30px;font-size:12px;opacity:.5">Real-roads map data © OpenStreetMap contributors</div></div>`;
     document.body.appendChild(el);
     const wheelLine = () => {
-      const r = window.SimInput && window.SimInput.remote, live = r && performance.now() - r.at < 1500, w = document.getElementById("vrWheel");
-      if (w) w.textContent = live ? "✓ G920 connected" : window.QUEST_APP ? "No wheel: drive with the controllers, or put them down and hold the virtual wheel with your hands." : "Wheel not connected: on the laptop, open Test Ready VR and press “Send wheel to headset”. (Or drive with the controllers.)";
+      const r = window.SimInput && window.SimInput.remote, live = r && r.wheel && performance.now() - r.at < 1500, w = document.getElementById("vrWheel");   // the G920 itself, not just the laptop
+      if (w) w.textContent = live ? (r.cal === false ? "✓ G920 connected · not calibrated yet: on the laptop, Drive → Calibrate wheel (1 minute)" : "✓ G920 connected and calibrated") : window.QUEST_APP ? "No wheel: drive with the controllers, or put them down and hold the virtual wheel with your hands." : "Wheel not connected: on the laptop, open Test Ready VR and press “Send wheel to headset”. (Or drive with the controllers.)";
       const p = document.getElementById("vrPair"), L = window.QLink; if (!p || !L) return;
       const code = L.savedCode();
       if (!code) { if (!p.querySelector("input")) p.innerHTML = `Link your laptop for the G920 and progress (optional): type the code shown in Test Ready on the laptop<br><input id="vrCode" maxlength="6" style="margin-top:10px;font:700 26px system-ui;width:180px;text-align:center;letter-spacing:4px;padding:8px;border-radius:12px;border:0;text-transform:uppercase"> <button id="vrPairGo" style="font:700 20px system-ui;padding:10px 18px;border-radius:12px;border:0;background:#2a4f9e;color:#fff">Link</button>`;
@@ -6955,7 +6962,7 @@
 (function () {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const I = () => window.SimInput;
-  let api = null, box = null, view = "list", wiz = null, loop = 0, mode = "practice";
+  let api = null, box = null, view = "list", wiz = null, feel = null, loop = 0, mode = "practice";
   try { mode = localStorage.getItem("dt-sim-mode") || "practice"; } catch (e) { }
 
   function best(id) {
@@ -7065,7 +7072,7 @@
         <div class="seg">${[["day", "Day"], ["dusk", "Dusk"], ["rain", "Rain"], ["mixed", "Mixed"]].map(([k, n]) => `<button class="${cond === k ? "on" : ""}" data-d="cond" data-c="${k}">${n}</button>`).join("")}</div>
         ${VRP ? "" : `<span class="dpad ${P ? "on" : ""}"><i></i>${P ? esc(P.name) + (P.mapped ? "" : " · not set up") : "Keyboard"}</span>
         ${VRP ? "" : `<button class="btn small ${questOpen ? "" : "ghost"}" data-d="quest" title="Drive in your Quest 3 and look around with your own head">Quest 3</button>`}
-        <button class="btn small ${window.Sim && window.Sim.second && window.Sim.second.live() ? "" : "ghost"}" data-d="second" title="Speed, gear, checklist and hints on the Zenbook's lower screen">${window.Sim && window.Sim.second && window.Sim.second.live() ? "Second screen on" : "Second screen"}</button><button class="btn small ${P && !P.mapped ? "" : "ghost"}" data-d="setup">Set up wheel</button><button class="btn ghost small" data-d="opts">Options</button>`}</div>`;
+        <button class="btn small ${window.Sim && window.Sim.second && window.Sim.second.live() ? "" : "ghost"}" data-d="second" title="Speed, gear, checklist and hints on the Zenbook's lower screen">${window.Sim && window.Sim.second && window.Sim.second.live() ? "Second screen on" : "Second screen"}</button>${P && P.mapped ? `<button class="btn small ${I().map.feel ? "ghost" : ""}" data-d="calib" title="Centre, rotation, pedals and the clutch bite point">${I().map.feel ? "Calibrate wheel" : "Calibrate wheel (not done)"}</button>` : `<button class="btn small ${P ? "" : "ghost"}" data-d="setup">Set up wheel</button>`}<button class="btn ghost small" data-d="opts">Options</button>`}</div>`;
     const groups = (window.SimGroups || []).map(g => {
       const inG = scns.filter(x => x.group === g); if (!inG.length) return "";
       const tested = inG.filter(x => !x.practiceOnly), done = tested.filter(x => { const b = best(x.id); return b && b.cleanTest; }).length;
@@ -7136,8 +7143,79 @@
   function buttonsView() {
     return `<div class="pagehead"><h1>Set up wheel: buttons</h1><p>Already set to the G920 layout. Press each one: its row lights up. Click Change to use a different button.</p></div>
       <div class="wiz"><div class="card"><div class="maplist btnmap">${I().ACTIONS.map(([k, n]) => `<div data-act-row="${k}"><span>${esc(n)}</span><b>${wiz.listen === k ? "Press a button or D-pad…" : esc(I().label(wiz.map.buttons[k]))}</b><button class="btn ghost small" data-d="wchange" data-k="${k}">${wiz.listen === k ? "Waiting" : "Change"}</button></div>`).join("")}</div>
-        <div class="row" style="margin-top:14px"><button class="btn" data-d="wsave">Save and finish</button><button class="btn ghost small" data-d="wpreset">Reset to G920 layout</button><button class="btn ghost small" data-d="wredo">Start again</button></div></div>
+        <div class="row" style="margin-top:14px"><button class="btn" data-d="wsave">Save, then calibrate</button><button class="btn ghost small" data-d="wpreset">Reset to G920 layout</button><button class="btn ghost small" data-d="wredo">Start again</button></div></div>
       ${GHUB}</div>`;
+  }
+  // ───────── calibration: after the mapping, make the wheel and pedals feel like the real car
+  const FEEL = [
+    { k: "centre", label: "Feet off the pedals. Hold the wheel dead straight (logo level), then Set.", why: "Straight ahead becomes truly straight, and I measure how much the pedals twitch at rest so a resting foot never moves the car." },
+    { k: "half", label: "Turn the wheel exactly half a turn to the right (logo upside down). Hold it there, then Set.", why: "Measures your wheel's real rotation, so half a turn on the G920 is half a turn in the car, whatever G HUB is set to." },
+    { k: "brake", label: "Press the brake as hard as you would in an emergency stop. Hold it, then Set.", why: "The G920 brake gets very stiff near the end. Your firm stop becomes full braking, and lighter presses scale from there." },
+    { k: "bite", label: "Clutch to the floor, then lift it slowly to where your instructor's car starts to bite. Hold it there, then Set.", why: "The car bites where your real car does, so the clutch control you practise here carries over." },
+    { k: "test", label: "Try it all out: turn, press each pedal, find the bite. Then Save.", why: "" }
+  ];
+  const SNAP = [270, 360, 540, 900, 1080];
+  function startFeel() { feel = { i: 0, m: JSON.parse(JSON.stringify(I().map)), range: I().opts.wheelRange || 900, noise: {}, msg: "", prevA: true }; view = "feel"; }
+  function feelView() {
+    const p = I().pad(), st = FEEL[feel.i];
+    if (!p || !I().map.done) return `<div class="pagehead"><h1>Calibrate wheel</h1></div><div class="card" style="max-width:720px"><p><b>${p ? "Set up the buttons first." : "No wheel found yet."}</b></p><p class="sub">${p ? "The wheel needs mapping before it can be calibrated." : "Plug the G920 in, make sure G HUB is running, then press any pedal or button."}</p><div class="row" style="margin-top:12px">${p ? `<button class="btn small" data-d="setup">Set up wheel</button>` : ""}<button class="btn ghost small" data-d="back">Back</button></div></div>`;
+    const last = st.k === "test";
+    return `<div class="pagehead"><h1>Calibrate wheel</h1><p>So it feels like your instructor's car. About a minute; you only do this once (or after changing G HUB).</p></div>
+      <div class="wiz"><div class="card">
+        <div class="sub">Step ${feel.i + 1} of ${FEEL.length}</div><div class="wiz-step">${esc(st.label)}</div>
+        ${st.why ? `<p class="sub">${esc(st.why)}</p>` : ""}
+        <p class="sub" id="feelmsg" style="color:#ffb74d">${esc(feel.msg)}</p>
+        <div class="row" style="margin-top:12px">${last ? `<button class="btn" data-d="fsave">Save calibration</button><button class="btn ghost small" data-d="fredo">Start again</button>` : `<button class="btn" data-d="fset">Set</button><span class="sub">or press A on the wheel</span>`}<button class="btn ghost small" data-d="back">Cancel</button></div>
+      </div>
+      <div class="card"><h3 class="mini" style="margin-top:0">Live</h3><div class="maplist" id="feellive"></div>
+        <p class="sub" style="margin:10px 0 0">Buttons or gears wrong? <button class="btn ghost small" data-d="setup">Remap the buttons</button></p></div></div>`;
+  }
+  // live readings with the calibration so far, so each step shows its effect straight away
+  function feelRead(p) {
+    const P = I(), m = feel.m, ax = i => p.axes[i] ?? 0, S = m.steer, half0 = (S.max - S.min) / 2 || 1, c = S.c ?? (S.min + S.max) / 2;
+    const s = Math.max(-1, Math.min(1, (ax(S.i) - c) / half0)), deg = s * feel.range / 2;
+    const thr = P.pedal(p, m.throttle), brk = P.pedal(p, m.brake), cl = P.clutchFeel(P.pedal(p, m.clutch), m.clutch.bite);
+    return { deg, thr, brk, cl, clRaw: P.pedal(p, m.clutch) };
+  }
+  const bar = (v, mark) => `<span style="display:inline-block;position:relative;width:140px;height:8px;border-radius:4px;background:var(--line);vertical-align:middle"><i style="position:absolute;left:0;top:0;bottom:0;width:${(v * 100).toFixed(0)}%;border-radius:4px;background:var(--accent,#5b8cff)"></i>${mark !== undefined ? `<i style="position:absolute;left:${(mark * 100).toFixed(0)}%;top:-3px;bottom:-3px;width:2px;background:#ffb74d"></i>` : ""}</span>`;
+  function feelTick(p) {
+    const el = box.querySelector("#feellive"); if (!el) return;
+    const r = feelRead(p), st = FEEL[feel.i], m = feel.m;
+    if (st && st.k === "centre") for (const k of ["throttle", "brake", "clutch"]) { const v = I().pedalRaw(p, m[k]), n = feel.noise[k] || (feel.noise[k] = { min: v, max: v }); n.min = Math.min(n.min, v); n.max = Math.max(n.max, v); }
+    const biting = r.cl < .72 && r.cl > .3 ? (r.cl > .6 ? "just biting" : "gripping") : r.cl >= .72 ? "free (pedal down)" : "fully up";
+    el.innerHTML = `<div><span>Steering wheel</span><b>${Math.round(r.deg)}° ${Math.abs(r.deg) < 3 ? "straight" : r.deg > 0 ? "right" : "left"}</b></div>
+      <div><span>Wheel rotation</span><b>${feel.range}° lock to lock</b></div>
+      <div><span>Accelerator</span><b>${bar(r.thr)} ${Math.round(r.thr * 100)}%</b></div>
+      <div><span>Brake</span><b>${bar(r.brk)} ${Math.round(r.brk * 100)}%</b></div>
+      <div><span>Clutch</span><b>${bar(r.clRaw, m.clutch.bite)} ${biting}</b></div>`;
+    // A on the wheel = Set, so you can keep your hands where they are
+    const a = !!(p.buttons[0] && p.buttons[0].pressed);
+    if (a && !feel.prevA && st && st.k !== "test") feelSet();
+    feel.prevA = a;
+  }
+  function feelSet() {
+    const p = I().pad(), st = FEEL[feel.i]; if (!p || !st) return;
+    const m = feel.m, P = I(), S = m.steer, sv = p.axes[S.i] ?? 0, half0 = (S.max - S.min) / 2 || 1, say = t => { feel.msg = t; render(); };
+    if (st.k === "centre") {
+      if (["throttle", "brake", "clutch"].some(k => P.pedalRaw(p, m[k]) > .2)) return say("A pedal is pressed. Take your feet right off, then Set.");
+      S.c = sv;
+      for (const k of ["throttle", "brake", "clutch"]) { const n = feel.noise[k]; m[k].dz = Math.min(.12, Math.max(.02, (n ? n.max - n.min : 0) * 1.5 + .02)); }
+    } else if (st.k === "half") {
+      const d = Math.abs(sv - (S.c ?? (S.min + S.max) / 2)) / half0;
+      if (d < .12) return say("I didn't see half a turn. Turn until the logo is upside down, hold it, then Set.");
+      let r = 360 / d; const near = SNAP.find(v => Math.abs(r - v) / v < .07); r = near || Math.round(r / 10) * 10;
+      feel.range = r;
+      feel.note = r === 900 ? "" : `Your wheel turns ${r}° lock to lock. That's fine, it now matches; 900° in G HUB is closest to a real hatchback.`;
+    } else if (st.k === "brake") {
+      if (P.pedalRaw(p, m.brake) < .25) return say("Press harder: as hard as an emergency stop, and hold it.");
+      m.brake.full = p.axes[m.brake.i];
+    } else if (st.k === "bite") {
+      const t = P.pedal(p, m.clutch);
+      if (t > .95) return say("That's the floor. Lift slowly to where it bites, hold, then Set.");
+      if (t < .08) return say("That's fully up. Push it down, then lift to the bite and hold.");
+      m.clutch.bite = Math.round(t * 1000) / 1000;
+    }
+    feel.i++; feel.msg = feel.i === FEEL.length - 1 && feel.note ? feel.note : ""; render();
   }
   function wizView() {
     const p = I().pad(), st = STEPS[wiz.i];
@@ -7164,8 +7242,9 @@
     return rows.map(r => `<div><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join("") || `<span class="sub">Nothing yet.</span>`;
   }
   function wizTick() {
-    if (view !== "setup" || !box || !document.body.contains(box)) { loop = 0; return; }
+    if ((view !== "setup" && view !== "feel") || !box || !document.body.contains(box)) { loop = 0; return; }
     const p = I().pad();
+    if (view === "feel") { if (p && I().map.done) feelTick(p); loop = requestAnimationFrame(wizTick); return; }
     const ax = box.querySelector("#wizaxes"), bt = box.querySelector("#wizbtns");
     if (p) {
       if (ax) ax.innerHTML = p.axes.map((v, i) => `<div class="ax"><span>Axis ${i}</span><div class="bar"><i style="left:${((v + 1) / 2 * 100).toFixed(1)}%"></i></div><span>${v.toFixed(2)}</span></div>`).join("");
@@ -7212,8 +7291,8 @@
 
   function render() {
     if (!box) return;
-    box.innerHTML = view === "setup" ? wizView() : view === "opts" ? optsView() : listView();
-    if (view === "setup" && !loop) loop = requestAnimationFrame(wizTick);
+    box.innerHTML = view === "setup" ? wizView() : view === "feel" ? feelView() : view === "opts" ? optsView() : listView();
+    if (view === "setup" || view === "feel") { cancelAnimationFrame(loop); loop = requestAnimationFrame(wizTick); }
   }
   function onClick(e) {
     const b = e.target.closest("[data-d]"); if (!b) return;
@@ -7252,7 +7331,11 @@
     else if (a === "wpreset") { wiz.map.buttons = I().g920Buttons(); wiz.listen = null; render(); }
     else if (a === "mbsave") { const v = (box.querySelector("#mbkey").value || "").trim(); if (v && !/^pk\.[A-Za-z0-9_\-.]{20,}$/.test(v)) { api.toast("That doesn't look like a Mapbox public token: it should start pk."); return; } I().opts.mapboxToken = v; I().opts.mapboxBad = false; I().saveOpts(); api.toast(v ? "Satellite key saved" : "Satellite key removed"); render(); }
     else if (a === "mbclear") { I().opts.mapboxToken = ""; I().opts.mapboxBad = false; I().saveOpts(); api.toast("Satellite key removed"); render(); }
-    else if (a === "wsave") { const p = I().pad(); wiz.map.id = p ? p.id : undefined; wiz.map.done = true; I().saveMap(wiz.map); api.toast("Wheel mapping saved"); view = "list"; render(); }
+    else if (a === "wsave") { const p = I().pad(); wiz.map.id = p ? p.id : undefined; wiz.map.done = true; if (wiz.done) wiz.map.feel = false; I().saveMap(wiz.map); api.toast("Buttons saved. Now the calibration."); startFeel(); render(); }
+    else if (a === "calib") { startFeel(); render(); }
+    else if (a === "fset") feelSet();
+    else if (a === "fredo") { startFeel(); render(); }
+    else if (a === "fsave") { const m = feel.m; m.feel = true; I().saveMap(m); I().opts.wheelRange = feel.range; I().saveOpts(); api.toast("Calibrated. The headset gets the same feel through the link."); view = "list"; render(); }
   }
   function onChange(e) { const k = e.target.dataset && e.target.dataset.opt; if (!k) return; I().opts[k] = e.target.checked; I().saveOpts(); }
   window.addEventListener("gamepadconnected", () => { if (box && document.body.contains(box) && view === "list") render(); });
