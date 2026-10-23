@@ -6598,8 +6598,11 @@
           const ux = (x2 - x1) / L, uz = (z2 - z1) / L, nx = -uz, nz = ux;
           // only where there are houses close by (terraces and estates, not open roads)
           const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, bl = d.bgrid.get(d.key(Math.floor(mx / CELL), Math.floor(mz / CELL))); if (!bl || bl.length < 3) continue;
-          const density = r.c === 6 ? .92 : .45;
+          // both sides only where a 3.2 m lane stays clear down the middle (a Mazda 6 is 1.8 m wide); on narrower
+          // streets one side only, the same side all along the street (the way people really park)
+          const density = r.c === 6 ? .65 : .35, CARW = 1.85, bothOK = r.w - 2 * CARW >= 3.2, oneSide = ((info.segs[i] * 2654435761) >>> 0) % 2 ? 1 : -1;
           for (const sd of [-1, 1]) {
+            if (!bothOK && sd !== oneSide) continue;
             if (rand() > density) continue;
             let sAlong = 6 + rand() * 6;
             while (sAlong < L - 6) {
