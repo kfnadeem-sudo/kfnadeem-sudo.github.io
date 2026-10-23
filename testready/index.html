@@ -2468,7 +2468,7 @@
       car.grip = this.cond === "rain" ? .7 : 1;
       if (this.world.height) {   // hills: the climb under the car pushes it back (or on), and tilts the view
         const dir = car.dir, ref = this.heightY, hF = this.world.height(car.x + dir.x * 1.3, car.z + dir.z * 1.3, ref), hB = this.world.height(car.x - dir.x * 1.3, car.z - dir.z * 1.3, ref);   // ref: stay on the level you are on (over or under a bridge)
-        car.slope = (hF - hB) / 2.6; this.pitch = Math.atan(car.slope); this.heightY = (hF + hB) / 2;
+        car.slope = (hF - hB) / 2.6; this.pitch = Math.atan(car.slope) + (car.squat || 0); this.heightY = (hF + hB) / 2;   // squat: the nose lifting at the bite (hill starts)
       }
       // breadcrumbs for the bird's-eye review on the results sheet
       this.trackT = (this.trackT || 0) + dt; if (this.trackT > .2) { this.trackT = 0; (this.track = this.track || []).push([car.x, car.z, car.v]); if (this.track.length > 6000) this.track.shift(); }
@@ -6785,7 +6785,7 @@
       const yaw = Math.atan2(-ux, -uz), k = c.rdt === undefined ? 1 : Math.min(1, c.rdt * 10), ky = c.rdt === undefined ? 1 : Math.min(1, c.rdt * 5);
       c.rx = c.rx === undefined ? c.x : c.rx + (c.x - c.rx) * k; c.rz = c.rz === undefined ? c.z : c.rz + (c.z - c.rz) * k;
       let dy = yaw - (c.ry ?? yaw); while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; c.ry = (c.ry ?? yaw) + dy * ky;
-      c.hy = OSM.H(c.rx, c.rz, c.hy); c.mesh.position.set(c.rx, c.hy, c.rz);   // keeps to its own level under or over a bridge c.mesh.rotation.y = c.ry;
+      c.hy = OSM.H(c.rx, c.rz, c.hy); c.mesh.position.set(c.rx, c.hy, c.rz); c.mesh.rotation.y = c.ry;   // keeps to its own level under or over a bridge
     }
     // the next road from the end of this one: no U-turns, one-way respected, mostly the bigger roads
     next(c) {
@@ -7286,6 +7286,93 @@
       }
     });
   }
+  // ───────── hill starts on real hills: a steep residential street from the LIDAR ground, parked at the kerb facing up
+  // (or down) it, then a hill start the way an instructor teaches it, marked the way an examiner would. A 2012 Mazda 6 has
+  // no hill-hold assist, so the car rolls back the moment the brakes let go without the clutch holding it.
+  OSM.hills = function (d) {   // steep two-way streets, steepest first: [x, z, yaw facing uphill, grade, name]
+    if (d._hills) return d._hills; const xy = d.xy, out = [];
+    d.roads.forEach(r => {
+      if (r.c < 3 || r.c > 6 || r.o || r.r || !d.nh) return;
+      for (let j = 0; j < r.p.length - 1; j++) {
+        const a = r.p[j], b = r.p[j + 1]; if (d.nh[a] === null || d.nh[b] === null) continue;
+        const dx = xy[b * 2] - xy[a * 2], dz = xy[b * 2 + 1] - xy[a * 2 + 1], L = Math.hypot(dx, dz); if (L < 40) continue;
+        const dh = (d.nh[b] - d.nh[a]) / 10, gr = Math.abs(dh) / L; if (gr < .08 || gr > .18) continue;
+        const up = dh > 0 ? 1 : -1, ux = dx / L * up, uz = dz / L * up, mx = xy[a * 2] + dx * .45, mz = xy[a * 2 + 1] + dz * .45;
+        out.push([mx, mz, Math.atan2(ux, -uz), gr, r.n >= 0 ? d.names[r.n].replace(/\s*\(.*\)$/, "") : "an unnamed street", r.w]);
+      }
+    });
+    out.sort((p, q) => q[3] - p[3]); return d._hills = out;
+  };
+  function realHill(down) {
+    const base = freeDrive("free-pick"), scn = realHillScn(down, base);
+    Object.defineProperty(scn, "title", { get() { const h = OSM.pickStart; return (down ? "Downhill start" : "Hill start") + (h && h.hill ? ": " + h.name + " (" + Math.round(h.grade * 100) + "%)" : " on a real street"); }, configurable: true });
+    return scn;
+  }
+  function realHillScn(down, base) {
+    const STEPS = down
+      ? [["Prepare", "Clutch down, first gear."], ["Footbrake", "Footbrake on firmly, then handbrake off. The footbrake holds you now."], ["Look", "Mirrors, then your right blind spot."], ["Go", "Ease off the footbrake and let the car roll, bringing the clutch up smoothly. Steer away from the kerb."]]
+      : [["Prepare", "Clutch down, first gear."], ["Gas", "Set the gas: about 1,500 to 2,000 revs, needle between 1½ and 2 on the rev counter. Hold it there."], ["Bite", "Clutch up slowly to the bite and hold it: the engine note drops and the bonnet lifts a touch."], ["Look", "Mirrors, then your right blind spot."], ["Go", "Handbrake off. Keep the clutch still at first, then ease it up with a little more gas."]];
+    return Object.assign({}, base, {
+      id: down ? "real-hill-down" : "real-hill", group: "Moving off & stops", limit: 15, maxMinors: 2, freeDrive: false,
+      brief: down ? "Parked facing down a real steep street. Move off safely: hold the car on the footbrake, not the handbrake, look round, then let it roll as the clutch comes up. No hill hold on this car."
+        : "Parked facing up a real steep street round here, with a car close behind. Move off without rolling back: revs, bite, look, then the handbrake. Your Mazda has no hill-hold assist, so it rolls back as soon as nothing holds it.",
+      start: down ? "When you're ready, move off downhill." : "When you're ready, move off up the hill.",
+      tips: down ? ["Downhill you don't need gas: gravity does the work.", "Swap the handbrake for the footbrake before you look round.", "Some instructors use 2nd gear downhill; 1st is fine."]
+        : ["More gas than on the flat. The rev counter is your friend: 1,500 to 2,000.", "At the bite, the bonnet lifts and the engine note drops. Hold the clutch dead still there.", "If it starts to roll back: handbrake straight back on, then try again with a bit more bite."],
+      preload: () => OSM.load(),
+      setup(ctx) {
+        const d = OSM.data, all = OSM.hills(d), near = all.filter(h => Math.hypot(h[0], h[1]) < 6000), pool = (near.length ? near : all).slice(0, 40);
+        const h = pool[Math.floor(Math.random() * pool.length)] || [0, 0, 0, .1, "the test centre", 6];
+        const s0 = OSM.roadStart(h[0], h[1]); const want = down ? h[2] + Math.PI : h[2];
+        let st = s0; if (st && Math.cos(st.yaw - want) < 0) st = OSM.roadStart(h[0], h[1], true) || st;   // face up (or down) the hill
+        OSM.pickStart = Object.assign({}, st, { hill: true, grade: h[3], name: h[4] });
+        base.setup.call(this, ctx);
+        const dd = ctx.data; dd.hs = { step: 0, x0: ctx.car.x, z0: ctx.car.z, back: 0, peak: 0, stalls: 0, t: 0 };
+        // a car parked close behind, the way the examiner picks it
+        if (!down && ctx.traffic.addStatic) {
+          const c = ctx.car, dir = c.dir, px = c.x - dir.x * 6.4, pz = c.z - dir.z * 6.4, pc = ctx.traffic.addStatic(px, pz, c.yaw, 0x8e2420);
+          const m = pc && pc.mesh || (ctx.traffic.cars && ctx.traffic.cars[ctx.traffic.cars.length - 1].mesh);   // on the hill, not at sea level
+          if (m) { const hF = OSM.H(px + dir.x * 1.3, pz + dir.z * 1.3), hB = OSM.H(px - dir.x * 1.3, pz - dir.z * 1.3); m.position.y = (hF + hB) / 2; m.rotation.order = "YXZ"; m.rotation.x = Math.atan((hF - hB) / 2.6); }
+        }
+        ctx.say(STEPS[0][1], { big: true });
+      },
+      hud(ctx) { const hs = ctx.data.hs, car = ctx.car; return [["Step", hs.step < STEPS.length ? `${hs.step + 1} of ${STEPS.length}: ${STEPS[hs.step][0]}` : "done"], ["Revs", Math.round(car.rpm / 50) * 50 + " rpm"], ["Rolled back", Math.round(hs.back * 100) + " cm"], ["Hill", Math.round((OSM.pickStart && OSM.pickStart.grade || 0) * 100) + "%"]]; },
+      tick(ctx, dt) {
+        base.tick.call(this, ctx, dt);
+        const car = ctx.car, c = ctx.c || {}, hs = ctx.data.hs, dir = car.dir, e = window.SimCar.engagement(c.clutch || 0); hs.t += dt;
+        const along = (car.x - hs.x0) * dir.x + (car.z - hs.z0) * dir.z;   // + forward
+        if (!car.handbrake || hs.step >= STEPS.length - 1) hs.back = Math.max(hs.back, -along);
+        if (!car.engineOn && !hs.off) { hs.off = true; hs.stalls++; } if (car.engineOn) hs.off = false;
+        if (!down) hs.peak = Math.max(hs.peak, hs.step >= 1 ? car.rpm : 0);
+        const next = msg => { hs.step++; ctx.sound.blip(880, .14, "sine", .4); if (STEPS[hs.step]) ctx.say(STEPS[hs.step][1], { big: true }); };
+        const st = STEPS[hs.step] && STEPS[hs.step][0], prac = ctx.mode === "practice";
+        if (st === "Prepare") { if (car.gear === 1 && (c.clutch || 0) > .8) next(); }
+        else if (st === "Gas") { hs.hold = car.rpm > 1350 && car.rpm < 2400 ? (hs.hold || 0) + dt : 0; if (prac && car.rpm < 1200 && hs.t > 3) ctx.hint("hsGas", "A bit more gas: aim for 1,500 to 2,000 on the rev counter.", 6); if (hs.hold > .8) next(); }
+        else if (st === "Bite") {   // the bite: the clutch just taking up the drive (holding a Mazda 6 on a 15% hill needs about 45 Nm, pedal ~0.62)
+          hs.bite = e > .04 && e < .25 && car.engineOn ? (hs.bite || 0) + dt : 0;
+          if (prac && e >= .25) ctx.hint("hsBite", "Too far: the engine's labouring against the handbrake. Clutch down a touch, back to the bite.", 5);
+          if (hs.bite > .8) next(); }
+        else if (st === "Footbrake") { if ((c.brake || 0) > .3 && !car.handbrake) next(); else if (prac && !car.handbrake && (c.brake || 0) < .2 && hs.t > 2) ctx.hint("hsFb", "Footbrake on first, before the handbrake comes off.", 4); }
+        else if (st === "Look") { if (ctx.mirrored(10) && ctx.obs.blindR > ctx.t - 10) next(); if (!down && !car.handbrake && once(hs, "early")) ctx.fault("Move off – safety", "minor", "You released the handbrake before looking round."); }
+        else if (st === "Go") {
+          if (prac && !down && car.handbrake === false && along < -.15) ctx.hint("hsRoll", "Rolling back! Handbrake on (B), then find the bite again with a bit more gas.", 3);
+          if (along > 6 && once(hs, "done")) {
+            const back = Math.round(hs.back * 100), bits = [];
+            if (!down) bits.push(back <= 5 ? "no roll-back" : `rolled back ${back} cm`); if (hs.stalls) bits.push(`stalled ${hs.stalls}×`); if (!down && hs.peak > 3500) bits.push(`revs up to ${Math.round(hs.peak / 100) * 100}: too much gas`);
+            if (!down && back > 100) ctx.fault("Control – moving off", "serious", `You rolled back ${back} cm. On the test, rolling into the car behind is a fail.`);
+            else if (!down && back > 30) ctx.fault("Control – moving off", "minor", `You rolled back ${back} cm. More bite (or gas) before the handbrake comes off.`);
+            if (hs.stalls) ctx.fault("Control – clutch", "minor", `You stalled ${hs.stalls === 1 ? "once" : hs.stalls + " times"} moving off.`);
+            if (!ctx.mirrored(15) || ctx.obs.blindR < ctx.t - 15) ctx.fault("Move off – safety", "minor", "Mirrors and the right blind spot every time you move off.");
+            ctx.flash((down ? "Downhill start done: " : "Hill start done: ") + (bits.join(", ") || "smooth") + ".", bits.length ? "warn" : "info");
+            hs.endAt = ctx.t + 2.5;
+          }
+          if (hs.endAt && ctx.t > hs.endAt) ctx.finish("done");
+        }
+        // when the car takes up the drive against the handbrake, the nose lifts a touch: the feel of the bite
+        car.squat = (car.squat || 0) + (((car.handbrake && car.gear > 0 && car.engineOn) ? Math.min(1, e * 2) * .012 : 0) - (car.squat || 0)) * Math.min(1, dt * 6);
+      }
+    });
+  }
   // ───────── choose where to start on a map of the real roads (before a free drive, and fast travel during one)
   // where you'd park: the nearest road (not a motorway or roundabout) to a point, at its left kerb, facing along it
   OSM.roadStart = function (tx, tz, flip) {
@@ -7445,7 +7532,7 @@
   window.SimOSM = OSM;
   // a free drive from wherever you picked on the map (hidden from the drill list; the map starts it)
   STARTS["free-pick"] = { title: "Free drive: your pick", where: "where you picked on the map", pick: true };
-  const list = Object.keys(STARTS).map(freeDrive).concat([testRoute(), centreBay()]);
+  const list = Object.keys(STARTS).map(freeDrive).concat([testRoute(), centreBay(), realHill(false), realHill(true)]);
   list.find(s => s.id === "free-pick").hidden = true;
   (window.SimScenarios = window.SimScenarios || []).push(...list);
   (window.SimGroups = window.SimGroups || []).includes("Free drive") || window.SimGroups.push("Free drive");
