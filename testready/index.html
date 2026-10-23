@@ -2548,11 +2548,21 @@
       const btns = [...this.over.querySelectorAll(".sim-btn:not([data-ans])")];
       if ((hit(0) || hit(3)) && btns[0]) { btns[0].click(); I.syncPad(); } else if (hit(1) && btns[1]) { btns[1].click(); I.syncPad(); }
     }
+    // fast travel (free drives on the real roads, not in the headset): pick a road on the map, the car jumps there, stopped
+    canTravel() { return !!(this.scn.freeDrive && /^free-/.test(this.scn.id) && window.SimOSM && window.SimOSM.data && !VRx().presenting); }
+    fastTravel() {
+      const c = this.over.querySelector(".sim-card"); if (!c) return;
+      c.style.maxWidth = "min(1100px, 94vw)"; c.style.width = "min(1100px, 94vw)";
+      c.innerHTML = `<h2>Fast travel</h2><p class="sim-sub">Click any road. You'll be parked at its kerb, stopped, handbrake on. The drive carries on and keeps its marks.</p><div class="sim-travel"></div>`;
+      const car = this.car, back = () => { pk.stop(); this.pause(); };
+      const pk = window.SimOSM.picker(c.querySelector(".sim-travel"), { car: { x: car.x, z: car.z, yaw: car.yaw }, goLabel: "Go there", cancel: back,
+        go: s => { pk.stop(); window.SimOSM.teleport(this._ctx, s); this.over.hidden = true; this.paused = false; this.last = performance.now(); this.flash("Fast travelled to " + s.name + ". Handbrake on: mirrors and blind spot before moving off.", "info"); } });
+    }
     pause() {
       if (this.ended) return; this.paused = true; this.sound.engine(0, 0, false);
       this.over.hidden = false;
-      this.over.innerHTML = `<div class="sim-card"><h2>Paused</h2>${this.controlsHelp(true)}<div class="sim-row"><button class="sim-btn primary" data-sim="resume">Carry on</button>${this.scn.freeDrive ? `<button class="sim-btn" data-sim="endmark">End drive: see my marks</button>` : ""}${this.mock ? "" : `<button class="sim-btn" data-sim="restart">Restart</button>`}<button class="sim-btn" data-sim="quit">${this.mock ? (this.mock.kind === "mock" ? "Leave the mock" : "Leave the run") : "Leave"}</button></div></div>`;
-      this.over.onclick = e => { const b = e.target.closest("[data-sim]"); if (!b) return; const a = b.dataset.sim; if (a === "resume") { this.over.hidden = true; this.paused = false; this.last = performance.now(); } else if (a === "endmark") { this.paused = false; this.finish("done"); } else if (a === "restart") this.restart(); else this.close(); };
+      this.over.innerHTML = `<div class="sim-card"><h2>Paused</h2>${this.controlsHelp(true)}<div class="sim-row"><button class="sim-btn primary" data-sim="resume">Carry on</button>${this.canTravel() ? `<button class="sim-btn" data-sim="travel">Fast travel</button>` : ""}${this.scn.freeDrive ? `<button class="sim-btn" data-sim="endmark">End drive: see my marks</button>` : ""}${this.mock ? "" : `<button class="sim-btn" data-sim="restart">Restart</button>`}<button class="sim-btn" data-sim="quit">${this.mock ? (this.mock.kind === "mock" ? "Leave the mock" : "Leave the run") : "Leave"}</button></div></div>`;
+      this.over.onclick = e => { const b = e.target.closest("[data-sim]"); if (!b) return; const a = b.dataset.sim; if (a === "resume") { this.over.hidden = true; this.paused = false; this.last = performance.now(); } else if (a === "endmark") { this.paused = false; this.finish("done"); } else if (a === "restart") this.restart(); else if (a === "travel") this.fastTravel(); else this.close(); };
     }
     finish(why) {
       if (this.ended) return; this.ended = true; if (!VRx().page) VRx().exit(); this.sound.engine(0, 0, false); this.sound.horn(false);
@@ -5729,7 +5739,7 @@
     data: null, loading: null,
     load() {
       if (OSM.data) return Promise.resolve(OSM.data);
-      if (!OSM.loading) OSM.loading = fetch("maps/oldham.json").then(r => { if (!r.ok) throw new Error("map file missing (" + r.status + ")"); return r.json(); }).then(d => { OSM.index(d); OSM.data = d; return d; });
+      if (!OSM.loading) OSM.loading = fetch("maps/oldham.json").then(r => { if (!r.ok) throw new Error("map file missing (" + r.status + ")"); return r.json(); }).then(d => { OSM.index(d); OSM.data = d; return d; }).catch(e => { OSM.loading = null; throw e; });   // a failed load can be tried again
       return OSM.loading;
     },
     index(d) {
@@ -6649,7 +6659,7 @@
     const S0 = STARTS[id];
     return {
       id, group: "Free drive", limit: 30, maxMinors: 15, freeDrive: true, preload: () => OSM.load(),
-      title: S0.title,
+      get title() { return S0.pick && OSM.pickStart ? "Free drive: " + OSM.pickStart.name : S0.title; },
       brief: `Real roads from ${S0.where}: Chadderton, Oldham and Ashton are all joined up. Drive wherever you like. You're marked like the test the whole time; pause (Esc) and choose "End drive" for your sheet.`,
       start: "When you're ready, drive on. Go wherever you like.",
       tips: ["Speed limits change: watch the signs (the limit for the road you're on shows top left in practice).", "At every junction: mirrors, signal, position, speed, then look. Right, left, right before you pull out.", "Roundabouts: look right early and only go when there's a safe gap.", "Traffic lights: amber means stop unless you're too close to stop safely."],
@@ -6657,7 +6667,9 @@
       setup(ctx) {
         const d = OSM.data, xy = d.xy;
         let x, z, yaw;
-        if (S0.site && d.site.aisles.length) {
+        const P0 = S0.pick && OSM.pickStart;
+        if (P0) { x = P0.x; z = P0.z; yaw = P0.yaw; }
+        else if ((S0.site || S0.pick) && d.site.aisles.length) {
           // on the car park aisle nearest the test centre building, facing the way it runs
           // (some aisles run under the building's outline, so take the nearest point with clear space all round)
           const cands = [];
@@ -7023,8 +7035,112 @@
       }
     });
   }
+  // ───────── choose where to start on a map of the real roads (before a free drive, and fast travel during one)
+  // where you'd park: the nearest road (not a motorway or roundabout) to a point, at its left kerb, facing along it
+  OSM.roadStart = function (tx, tz, flip) {
+    const d = OSM.data, xy = d.xy; let best = null;
+    d.roads.forEach((r, ri) => {
+      if (r.c === 0 || r.r) return;
+      for (let j = 0; j < r.p.length - 1; j++) {
+        const a = r.p[j], b = r.p[j + 1], [dist, t] = segDist(tx, tz, xy[a * 2], xy[a * 2 + 1], xy[b * 2], xy[b * 2 + 1]);
+        if (!best || dist < best.dist) best = { dist, r, a, b, t };
+      }
+    });
+    if (!best || best.dist > 120) return null;
+    const { r } = best, back = r.o ? r.o === -1 : !!flip;   // a one-way street only goes one way (o -1: against the node order)
+    const a = back ? best.b : best.a, b = back ? best.a : best.b, t = back ? 1 - best.t : best.t;
+    const ux0 = xy[b * 2] - xy[a * 2], uz0 = xy[b * 2 + 1] - xy[a * 2 + 1], L = Math.hypot(ux0, uz0) || 1, ux = ux0 / L, uz = uz0 / L;
+    const along = Math.min(Math.max(t * L, Math.min(6, L / 2)), Math.max(L - 6, L / 2));   // keep off the junction mouths
+    const off = r.o ? r.w / 2 - 1.1 : r.w / 2 - 1.2;
+    return { x: xy[a * 2] + ux * along + uz * off, z: xy[a * 2 + 1] + uz * along - ux * off, yaw: Math.atan2(ux, -uz), name: r.n >= 0 ? d.names[r.n] : "Unnamed road", limit: r.s, oneway: !!r.o, flip: !!back };
+  };
+  const PLACES = [["Test centre", 53.5523, -2.1378, "centre"], ["Chadderton", 53.5458, -2.1395], ["Oldham", 53.5414, -2.1162], ["Royton", 53.5660, -2.1210], ["Failsworth", 53.5080, -2.1580], ["Ashton", 53.4897, -2.0957]];
+  const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+  // the map widget: drag to move, wheel or the buttons to zoom, click a road to pick it. opts: { car, go(start), goLabel, cancel }
+  OSM.picker = function (host, opts) {
+    const d = OSM.data, xy = d.xy, LAT0 = d.origin[0], LON0 = d.origin[1], KZ = 111320, KX = KZ * Math.cos(LAT0 * Math.PI / 180);
+    const toXZ = (lat, lon, kind) => kind === "centre" ? [0, 0] : [(lon - LON0) * KX, -(lat - LAT0) * KZ];   // the map's origin is the test centre
+    // only the towns the map covers
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let i = 0; i < xy.length; i += 2) { x0 = Math.min(x0, xy[i]); x1 = Math.max(x1, xy[i]); z0 = Math.min(z0, xy[i + 1]); z1 = Math.max(z1, xy[i + 1]); }
+    const places = PLACES.filter(([, lat, lon, k]) => { const [x, z] = toXZ(lat, lon, k); return x > x0 && x < x1 && z > z0 && z < z1; });
+    // every road as one path per kind, drawn in metres and scaled by the canvas
+    const P = OSM._mapPaths || (OSM._mapPaths = (() => {
+      const kinds = { big: new Path2D(), mid: new Path2D(), small: new Path2D(), rb: new Path2D() };
+      for (const r of d.roads) {
+        const k = r.r ? "rb" : r.c <= 2 ? "big" : r.c <= 5 ? "mid" : "small", p = kinds[k];
+        r.p.forEach((n, i) => i ? p.lineTo(xy[n * 2], xy[n * 2 + 1]) : p.moveTo(xy[n * 2], xy[n * 2 + 1]));
+      }
+      return kinds;
+    })());
+    host.innerHTML = `<div class="osmpick" style="display:grid;gap:10px">
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center">${places.map(([n], i) => `<button class="btn ghost small" data-pl="${i}">${n}</button>`).join("")}${opts.car ? `<button class="btn ghost small" data-pl="car">Where I am</button>` : ""}
+        <span style="flex:1"></span><button class="btn ghost small" data-z="1.6" title="Zoom in">+</button><button class="btn ghost small" data-z="0.625" title="Zoom out">−</button></div>
+      <canvas style="width:100%;height:min(58vh,520px);border-radius:12px;cursor:crosshair;touch-action:none;background:#1b2128;display:block"></canvas>
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><span class="sub osmpick-info" style="flex:1;min-width:220px">Click any road to start there. Drag to move, scroll to zoom.</span>
+        <button class="btn ghost small" data-flip hidden>Face the other way</button>${opts.cancel ? `<button class="btn ghost small" data-cancel>Cancel</button>` : ""}<button class="btn" data-go disabled>${opts.goLabel || "Start here"}</button></div>
+      <span class="sub" style="font-size:11px;opacity:.6">Map data © OpenStreetMap contributors</span></div>`;
+    const cv = host.querySelector("canvas"), g = cv.getContext("2d"), info = host.querySelector(".osmpick-info"), goB = host.querySelector("[data-go]"), flipB = host.querySelector("[data-flip]");
+    let scale = .16, cx = 0, cz = 0, sel = null, pick = null, flip = false, hover = null;
+    if (opts.car) { cx = opts.car.x; cz = opts.car.z; scale = .6; }
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const size = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(10, r.width * dpr); cv.height = Math.max(10, r.height * dpr); };
+    const toWorld = (px, py) => [cx + (px * dpr - cv.width / 2) / (scale * dpr), cz + (py * dpr - cv.height / 2) / (scale * dpr)];
+    function draw() {
+      const W = cv.width, H = cv.height, s = scale * dpr; g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = "#1b2128"; g.fillRect(0, 0, W, H);
+      g.setTransform(s, 0, 0, s, W / 2 - cx * s, H / 2 - cz * s); g.lineCap = g.lineJoin = "round";
+      const line = (p, col, px, min) => { g.strokeStyle = col; g.lineWidth = Math.max(px / s, min || 0); g.stroke(p); };
+      line(P.small, "#39424d", 1.2, 4); line(P.mid, "#56616e", 1.6, 7); line(P.rb, "#8b96a3", 1.8, 8); line(P.big, "#c99a4a", 2.4, 10);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      const sp = (x, z) => [W / 2 + (x - cx) * s, H / 2 + (z - cz) * s];
+      // town names, and the test centre
+      g.font = `600 ${12 * dpr}px system-ui,sans-serif`; g.textAlign = "center";
+      for (const [n, lat, lon, kind] of places) { const [x, y] = sp(...toXZ(lat, lon, kind)); if (kind) { g.fillStyle = "#ffcc00"; g.beginPath(); g.arc(x, y, 6 * dpr, 0, 7); g.fill(); g.fillStyle = "#ffe58a"; g.fillText("Test centre", x, y - 10 * dpr); } else { g.fillStyle = "rgba(232,238,246,.75)"; g.fillText(n, x, y); } }
+      const arrow = (p, col, r) => { const [x, y] = sp(p.x, p.z), dx = Math.sin(p.yaw), dz = -Math.cos(p.yaw), lx = -dz, lz = dx; g.fillStyle = col; g.strokeStyle = "#0d1117"; g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(x + dx * r * dpr, y + dz * r * dpr); g.lineTo(x - dx * r * .7 * dpr + lx * r * .7 * dpr, y - dz * r * .7 * dpr + lz * r * .7 * dpr); g.lineTo(x - dx * r * .3 * dpr, y - dz * r * .3 * dpr); g.lineTo(x - dx * r * .7 * dpr - lx * r * .7 * dpr, y - dz * r * .7 * dpr - lz * r * .7 * dpr); g.closePath(); g.fill(); g.stroke(); };
+      if (opts.car) arrow({ x: opts.car.x, z: opts.car.z, yaw: opts.car.yaw }, "#8fa6c2", 9);
+      if (hover && !sel) { const [x, y] = sp(hover.x, hover.z); g.strokeStyle = "rgba(255,255,255,.6)"; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(x, y, 7 * dpr, 0, 7); g.stroke(); }
+      if (sel) arrow(sel, "#5b8cff", 13);
+    }
+    function choose() {
+      sel = pick ? OSM.roadStart(pick[0], pick[1], flip) : null;
+      if (!sel) { info.textContent = "No road there. Click on or near a road."; goB.disabled = true; flipB.hidden = true; draw(); return; }
+      const deg = ((sel.yaw * 180 / Math.PI) % 360 + 360) % 360;
+      info.innerHTML = `<b>${sel.name.replace(/[<&]/g, "")}</b> · ${sel.limit} mph · facing ${COMPASS[Math.round(deg / 45) % 8]}${sel.oneway ? " (one-way)" : ""}`;
+      goB.disabled = false; flipB.hidden = sel.oneway; draw();
+    }
+    let drag = null;
+    cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx, cz, moved: false }; };
+    cv.onpointermove = e => {
+      if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; if (drag.moved) { cx = drag.cx - dx / scale; cz = drag.cz - dy / scale; draw(); } return; }
+      const r = cv.getBoundingClientRect(), [x, z] = toWorld(e.clientX - r.left, e.clientY - r.top); hover = { x, z }; if (!sel) draw();
+    };
+    cv.onpointerup = e => { const dd = drag; drag = null; if (!dd || dd.moved) return; const r = cv.getBoundingClientRect(); pick = toWorld(e.clientX - r.left, e.clientY - r.top); flip = false; choose(); };
+    cv.onwheel = e => { e.preventDefault(); const r = cv.getBoundingClientRect(), [wx, wz] = toWorld(e.clientX - r.left, e.clientY - r.top), k = Math.exp(-e.deltaY * .0015); scale = Math.min(12, Math.max(.06, scale * k)); const [nx, nz] = toWorld(e.clientX - r.left, e.clientY - r.top); cx += wx - nx; cz += wz - nz; draw(); };
+    host.onclick = e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.pl) { if (b.dataset.pl === "car") { cx = opts.car.x; cz = opts.car.z; scale = 1.6; } else { const [, lat, lon, k] = places[+b.dataset.pl]; [cx, cz] = toXZ(lat, lon, k); scale = .6; } draw(); }
+      else if (b.dataset.z) { scale = Math.min(12, Math.max(.06, scale * +b.dataset.z)); draw(); }
+      else if (b.hasAttribute("data-flip")) { flip = !flip; choose(); }
+      else if (b.hasAttribute("data-cancel")) opts.cancel();
+      else if (b.hasAttribute("data-go") && sel) opts.go(sel);
+    };
+    const ro = new ResizeObserver(() => { size(); draw(); }); ro.observe(cv); size(); draw();
+    return { stop() { ro.disconnect(); } };
+  };
+  // fast travel: the car jumps to a new kerb, stopped, handbrake on; the town and its traffic rebuild round it
+  OSM.teleport = function (ctx, s) {
+    const car = ctx.car, dd = ctx.data;
+    Object.assign(car, { x: s.x, z: s.z, yaw: s.yaw, v: 0, steer: 0, gear: 0, handbrake: true, locked: false });
+    car.setIndicator && car.ind && car.setIndicator(car.ind);   // cancel
+    ctx.world.update(car, true); ctx.world.clearParked(s.x, s.z, 14);
+    if (dd.ai) { dd.ai.cars.forEach(c => c.mesh && c.mesh.parent && c.mesh.parent.remove(c.mesh)); dd.ai.cars.length = 0; dd.ai.spawnNear(s.x, s.z, 20); }
+    dd.road = null; dd.indT = { L: -99, R: -99 }; dd.minV = 99; dd.ev = [];
+  };
+
   window.SimOSM = OSM;
+  // a free drive from wherever you picked on the map (hidden from the drill list; the map starts it)
+  STARTS["free-pick"] = { title: "Free drive: your pick", where: "where you picked on the map", pick: true };
   const list = Object.keys(STARTS).map(freeDrive).concat([testRoute(), centreBay()]);
+  list.find(s => s.id === "free-pick").hidden = true;
   (window.SimScenarios = window.SimScenarios || []).push(...list);
   (window.SimGroups = window.SimGroups || []).includes("Free drive") || window.SimGroups.push("Free drive");
 })();
@@ -7121,11 +7237,11 @@
   // free drive on the real Chadderton / Oldham / Ashton roads: its own strip, start where you like
   function freeCard() {
     return `<div class="card dfree"><div><b>Real roads</b><span class="sub">Chadderton, Oldham and Ashton, joined up. Mock test route: sat nav from the test centre and back. Or just drive from anywhere; Esc, then End drive for your sheet.</span><span class="osm">Map data © OpenStreetMap contributors</span></div>
-      <div class="row" style="gap:8px;flex-wrap:nowrap">${[["test-route", "Mock test route"], ["free-centre", "Test centre"], ["free-oldham", "Oldham"], ["free-ashton", "Ashton"]].map(([id, n], i) => `<button class="btn small ${i ? "ghost" : ""}" ${id === "test-route" ? 'data-d="run" data-run="real-mock"' : `data-d="go" data-id="${id}" data-m="${mode}"`}>${i ? "" : ic2("play")}${n}</button>`).join("")}</div></div>`;
+      <div class="row" style="gap:8px;flex-wrap:nowrap">${[["test-route", "Mock test route"], ["free-centre", "Test centre"], ["free-oldham", "Oldham"], ["free-ashton", "Ashton"]].map(([id, n], i) => `<button class="btn small ${i ? "ghost" : ""}" ${id === "test-route" ? 'data-d="run" data-run="real-mock"' : `data-d="go" data-id="${id}" data-m="${mode}"`}>${i ? "" : ic2("play")}${n}</button>`).join("")}<button class="btn small ghost" data-d="pickmap" title="Choose any road to start from">Pick on map</button></div></div>`;
   }
   const ic2 = n => `<svg class="ic"><use href="#i-${n}"/></svg>`;
   function listView() {
-    const P = padInfo(), scns = window.SimScenarios || [];
+    const P = padInfo(), scns = (window.SimScenarios || []).filter(s => !s.hidden);
     const ok = window.Sim && window.Sim.available();
     // your weak areas first (roundabouts, junctions, clutch control, meeting traffic), then everything else in order
     const PRI = ["big-rand", "town-drive", "gap-trainer", "big-3", "rb-3", "tj-R-gw", "tj-into-L", "hazard-ball", "clutch-trainer", "hill-start", "dual-join", "meet-parked", "meet-cyclist", "man-parallel", "man-bay-rev"];
@@ -7362,8 +7478,25 @@
     wiz.msg = ""; wiz.i++; wiz.base = null; render();
   }
 
+  // pick any road on the real-roads map, then drive from there
+  let picker = null;
+  function mapView() {
+    box.innerHTML = `<div class="pagehead"><h1>Pick where to start</h1><p>Chadderton, Oldham and Ashton, joined up. Click a road, then Start here. ${mode === "test" ? "Test mode: marked, no hints." : "Practice mode: hints on."}</p></div><div class="card" id="mappick"><p class="sub">Loading the map…</p></div>`;
+    const host = box.querySelector("#mappick");
+    window.SimOSM.load().then(() => {
+      if (view !== "map" || !document.body.contains(host)) return;
+      picker = window.SimOSM.picker(host, { cancel: () => { view = "list"; render(); }, go: s => {
+        window.SimOSM.pickStart = s; view = "list"; render();
+        if (!window.Sim.available()) { api.toast("3D isn't available in this browser."); return; }
+        window.Sim.playlist = null; window.Sim.onClose = () => render();
+        window.Sim.start("free-pick", mode, r => { api.add(r); });
+      } });
+    }).catch(e => { host.innerHTML = `<p><b>The map didn't load.</b></p><p class="sub">${esc(e.message)}</p><button class="btn ghost small" data-d="back">Back</button>`; });
+  }
   function render() {
     if (!box) return;
+    if (picker && view !== "map") { picker.stop(); picker = null; }
+    if (view === "map") return mapView();
     box.innerHTML = view === "setup" ? wizView() : view === "feel" ? feelView() : view === "opts" ? optsView() : listView();
     if (view === "setup" || view === "feel") { cancelAnimationFrame(loop); loop = requestAnimationFrame(wizTick); }
   }
@@ -7396,6 +7529,7 @@
     else if (a === "mode") { mode = b.dataset.m; try { localStorage.setItem("dt-sim-mode", mode); } catch (err) { } render(); }
     else if (a === "setup") { startWizard(); render(); }
     else if (a === "opts") { view = "opts"; render(); }
+    else if (a === "pickmap") { view = "map"; render(); }
     else if (a === "back") { view = "list"; render(); }
     else if (a === "wnext") wizNext();
     else if (a === "wskip") { wiz.i++; wiz.base = null; wiz.msg = ""; render(); }
