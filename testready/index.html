@@ -1274,8 +1274,8 @@
     // first time in VR this visit: find the wheel. Later drills only re-attach (calibration carries over)
     start(sim) {
       H.cal = H.load(); H.attach(sim);
-      H.t0 = sim.t; H.still = 0; H.phase = "wheel";
-      sim.say("Hands on your wheel at quarter to three, and hold still for a moment so I can find it.", { big: true });
+      if (H.cal) { H.phase = "drive"; return; }   // set up before: straight in (menu → Set up seat and wheel to redo)
+      VR.setup.open(sim);
     },
     attach(sim) {
       const t = T(); H.sim = sim; H.grip = {}; H.lastT = undefined;
@@ -1313,21 +1313,37 @@
       const hands = H.read(sim), dt = Math.max(.001, sim.t - (H.lastT ?? sim.t)); H.lastT = sim.t;
       const speed = s => { const a = hands[s], b = H.prev[s]; return a && b ? a.palm.distanceTo(b) / dt : 9; };
       if (H.phase === "wheel") {
-        const L = hands.left, Rh = hands.right, d = L && Rh ? L.palm.distanceTo(Rh.palm) : 0;
-        if (d > .18 && d < .55 && speed("left") < .06 && speed("right") < .06) H.still += dt; else H.still = 0;
-        if (H.still > 1.4) {
-          const t = T(), c = L.palm.clone().add(Rh.palm).multiplyScalar(.5), n = H.eye(sim).sub(c).normalize();
-          H.cal = Object.assign(H.cal || {}, { c: c.toArray(), n: n.toArray(), r: Math.max(.1, d / 2 - .015) }); H.save(); H.apply();
-          H.phase = "shifter"; H.t1 = sim.t; H.still = 0;
-          sim.say("Got your wheel. Now touch the top of your gear stick and hold still, or keep both hands on the wheel to skip.", { big: true });
-        } else if (sim.t - H.t0 > 12) { H.phase = "drive"; if (H.cal) H.apply(); sim.flash(H.cal ? "Couldn't see your hands: using your last wheel setup." : "Couldn't see your hands: hand tracking may be off (Quest settings → Hands).", "warn"); }
+        const L = hands.left, Rh = hands.right, d = L && Rh ? L.palm.distanceTo(Rh.palm) : 0, still = speed("left") < .06 && speed("right") < .06;
+        H.seen = L || Rh ? sim.t : (H.seen ?? sim.t);
+        let msg;
+        if (!L && !Rh) msg = sim.t - H.seen > 5 ? "I can't see your hands. Put the controllers down (the Quest switches to hands by itself). Still nothing? Quest settings → Movement tracking → Hand tracking on." : "Looking for your hands…";
+        else if (!L || !Rh) msg = (L ? "Left hand ✓" : "Right hand ✓") + " · now the other hand on the wheel too";
+        else {
+          const e = H.eye(sim), c = L.palm.clone().add(Rh.palm).multiplyScalar(.5), fwd = e.z - c.z, down = e.y - c.y, side = c.x - e.x;
+          // a wheel is in front of you, a bit below your eyes, roughly straight ahead, about 30-50 cm across
+          const why = d < .22 ? "Hands a bit further apart: quarter to three, on the rim." : d > .5 ? "Hands closer together: both on the rim of the wheel." : fwd < .2 ? "Reach forward to the wheel." : fwd > .9 ? "Lean back in your seat: the wheel should be in front of you." : down < .02 ? "Hands lower: on the wheel, not above it." : down > .65 ? "Hands higher: on the wheel." : Math.abs(side) > .3 ? "Sit square to the wheel: it looks off to one side. Look straight ahead and press A to recentre your seat." : null;
+          if (why) { H.still = 0; msg = why; }
+          else { H.still = still ? H.still + dt : 0; msg = still ? `Left ✓ Right ✓ · hold still… ${Math.max(1, Math.ceil(1.5 - H.still))}` : "Left ✓ Right ✓ · now keep still"; }
+          if (H.still > 1.5) {
+            const n = e.clone().sub(c).normalize();
+            H.cal = Object.assign(H.cal || {}, { c: c.toArray(), n: n.toArray(), r: Math.max(.12, Math.min(.2, d / 2 - .015)) }); H.save(); H.apply();
+            H.still = 0; VR.setup.go("check"); msg = null;
+          }
+        }
+        if (msg) VR.setup.status(msg);
       } else if (H.phase === "shifter") {
-        const c = new (T().Vector3)().fromArray(H.cal.c), cand = ["left", "right"].map(s => hands[s] && hands[s].tip && hands[s].tip.distanceTo(c) > H.cal.r + .14 ? s : null).find(Boolean);
+        const c = new (T().Vector3)().fromArray(H.cal.c), cand = ["left", "right"].map(s => hands[s] && hands[s].tip && hands[s].tip.distanceTo(c) > H.cal.r + .14 && hands[s].tip.x < c.x ? s : null).find(Boolean);
         if (cand && speed(cand) < .06) H.still += dt; else H.still = 0;
-        if (H.still > 1.2) { const tip = hands[cand].tip; H.cal.s = tip.toArray(); H.cal.sn = H.eye(sim).sub(tip).normalize().toArray(); H.save(); H.apply(); H.phase = "drive"; sim.say("Done. You'll see your real wheel and gear stick through the window. Drive when you're ready.", { big: true }); }
-        else if (sim.t - H.t1 > 9) { H.phase = "drive"; H.apply(); sim.say("Done. Drive when you're ready.", { big: true }); }
-      } else H.drive(sim, hands, dt);
+        VR.setup.status(!hands.left && !hands.right ? "Looking for your hands…" : cand ? `Got it · hold still… ${Math.max(1, Math.ceil(1.2 - H.still))}` : "Touch the top of the gear knob (to the left of the wheel)");
+        if (H.still > 1.2) { const tip = hands[cand].tip; H.cal.s = tip.toArray(); H.cal.sn = H.eye(sim).sub(tip).normalize().toArray(); H.save(); H.apply(); H.still = 0; VR.setup.go("done"); }
+      } else if (H.phase === "drive") H.drive(sim, hands, dt);
       H.prev = {}; for (const s in hands) H.prev[s] = hands[s].palm.clone();
+    },
+    // the standard wheel position (setup skipped): the car's own wheel, no window
+    restoreDefault() {
+      const sim = H.sim; if (!sim || !H.mount) return;
+      H.mount.position.set(.37, .9, -.6); H.mount.rotation.set(-.5, 0, 0); sim.cock.wheel.scale.setScalar(1); sim.cock.wheel.visible = true;
+      if (H.hole) H.hole.visible = false; if (H.shiftHole) H.shiftHole.visible = false;
     },
     // put the virtual wheel (and the passthrough window) where the real wheel is
     apply() {
@@ -1348,7 +1364,7 @@
     hd: { wheel: 0, grips: {}, gearT: 0, revT: 0, presses: [] },
     wheelLive() { const r = window.SimInput && window.SimInput.remote; return !!(r && r.wheel && performance.now() - r.at < 1500); },
     driveInput(car, dt) {
-      if (!H.sim || !H.mount || H.phase === "wheel" || H.phase === "shifter") return null;
+      if (!H.sim || !H.mount || H.phase !== "drive") return null;
       const sim = H.sim, hands = H.read(sim); if (!hands.left && !hands.right) return null;
       const S = H.hd, r = H.cal ? H.cal.r : .175, pinch = h => h && h.tip && h.thumb ? Math.max(0, Math.min(1, (.045 - h.tip.distanceTo(h.thumb)) / .03)) : 0;
       // steering: each hand that holds the rim drags the wheel round with it
@@ -1390,7 +1406,7 @@
         if (!H.flicked && Math.abs(dy) > .045) { H.flicked = true; (VR.handQ = VR.handQ || []).push(dy > 0 ? "indR" : "indL"); }
       } else { H.stalkY = undefined; H.flicked = false; }
       // the window onto your real wheel only while the G920 is linked; otherwise the virtual wheel you hold with your hands
-      const win = VR.ar && H.wheelLive();
+      const win = VR.ar && H.wheelLive() && !!H.cal;
       H.hole.visible = win; H.shiftHole.visible = win && !!cal.s; sim.cock.wheel.visible = !win;
       if (win) return;
       // gloves: grab the rim when a palm comes near it, then turn with the G920 (tracking wobble or loss doesn't move them)
@@ -1474,7 +1490,7 @@
           body = `<div class="sim-kicker">Test Ready · VR</div><h2>What do you want to drive?</h2><p>Point and pinch, pull the trigger, or use A / B / X / Y on the wheel.</p>
             <div class="sim-row">${pg.map(([k, l], i) => `<button class="sim-btn${i ? "" : " primary"}" data-l="${k}">${l}</button>`).join("")}
             ${items.length > per ? `<button class="sim-btn" data-l="more:${(n + 1) % Math.ceil(items.length / per)}">More…</button>` : ""}
-            <button class="sim-btn" data-l="recentre">Recentre my seat</button><button class="sim-btn" data-l="recal">Find my wheel again</button><button class="sim-btn" data-l="exit">Exit VR</button></div>`;
+            <button class="sim-btn" data-l="recentre">Recentre my seat</button><button class="sim-btn" data-l="recal">Set up seat and wheel</button><button class="sim-btn" data-l="exit">Exit VR</button></div>`;
         } else {
           const list = scns.filter(s => s.group === page), per = 8, pg = list.slice(n * per, n * per + per);
           body = `<div class="sim-kicker">${page}</div><h2>Pick a drill</h2>
@@ -1494,7 +1510,7 @@
         else if (k === "back") show("root");
         else if (k.startsWith("go:")) leaveFor(() => window.Sim.start(k.slice(3), "practice", record));
         else if (k === "recentre") VR.recenter();
-        else if (k === "recal") { VR.hands.cal = null; try { localStorage.removeItem("tr.vrCal"); } catch (e2) { } VR.hands.start(sim); }
+        else if (k === "recal") { VR.hands.attach(sim); VR.setup.open(sim); }
         else if (k === "exit") { VR.exit(); sim.close(); }
       };
       show("root");
@@ -1505,6 +1521,43 @@
   const ensureLobby = () => { const L = window.SimScenarios = window.SimScenarios || []; if (!L.some(x => x.id === "vr-lobby")) L.push(lobby); };
   window.addEventListener("load", ensureLobby);
   VR.lobby = () => { ensureLobby(); if (window.Sim && !window.Sim.current) { window.Sim.onClose = null; window.Sim.start("vr-lobby", "practice", () => { }); } };
+
+  // ═══════════════ SEAT AND WHEEL SETUP (step by step, in the headset) ═══════════════
+  // One card per step, a live line saying what it sees, and the G920's buttons named on every button (A / B / X / Y
+  // press the first four). Done once and saved; menu → "Set up seat and wheel" to redo it.
+  VR.setup = {
+    open(sim) { const S = VR.setup; S.sim = sim; S.wasClick = sim.over.onclick; S.wasPaused = sim.paused; S.wasHidden = sim.over.hidden; sim.paused = true; S.go("intro"); },
+    status(txt) { const el = VR.setup.sim && VR.setup.sim.over.querySelector("#vsStatus"); if (el && el.textContent !== txt) { el.textContent = txt; if (VR.card) VR.card.sig = ""; } },
+    go(step) {
+      const S = VR.setup, sim = S.sim, H = VR.hands; S.step = step; if (!sim) return;
+      const ar = !!VR.ar, n = { intro: 0, seat: 1, wheel: 2, check: 2, shifter: 3, done: 0 }[step];
+      const card = (title, text, btns, up) => { sim.over.hidden = false; sim.over.innerHTML = `<div class="sim-card${up ? " vr-up" : ""}"><div class="sim-kicker">Seat and wheel setup${n ? " · step " + n + " of 3" : ""}</div><h2>${title}</h2><p>${text}</p><p id="vsStatus"></p><div class="sim-row">${btns.map(([k, l], i) => `<button class="sim-btn${i ? "" : " primary"}" data-vs="${k}">${l}</button>`).join("")}</div></div>`; if (VR.card) VR.card.sig = ""; };
+      H.phase = step === "wheel" ? "wheel" : step === "shifter" ? "shifter" : "pause"; H.still = 0; H.seen = undefined;
+      if (step === "intro") card("Set up your seat and wheel", "About 30 seconds, once. 1: sit how you drive. 2: put your hands on your wheel so the car's wheel lines up with your real one. 3: touch your gear stick.", [["seat", "Start"], ["skip", "Skip: standard position"]]);
+      else if (step === "seat") card("Sit how you drive", "Back against the seat, look straight ahead. Then press A on the wheel (or point at the button and pinch).", [["seatok", "Done, I'm sitting right"], ["intro", "Back"]]);
+      else if (step === "wheel") card("Hands on your wheel", "Put the controllers down. Both hands on the rim at quarter to three (9 and 3 on a clock), and keep still for a second.", [["seatagain", "Recentre my seat"], ["intro", "Start again"], ["skip", "Skip: standard position"]], true);   // A first: harmless, your hands are on the wheel
+      else if (step === "check") card("Does it line up?", ar ? "You should see your real wheel through a window in the car. Turn it a little: the window follows your hands." : "Look down: the car's wheel should be where your hands are. Turn your real wheel a little: the car's wheel turns with it.", [["shift", "Yes, lines up"], ["wheel", "Redo"], ["skip", "Use the standard position"]], true);
+      else if (step === "shifter") card("Touch your gear stick", "With your left hand, touch the top of the gear knob and keep still. Or press A to skip this step.", [["done", "Skip this step"]], true);
+      else if (step === "done") card("All set", "Saved. You won't need this again unless you move your wheel. To redo it: menu → Set up seat and wheel.", [["finish", "Go to the menu"]]);
+      sim.over.onclick = e => {
+        const b = e.target.closest("[data-vs]"); if (!b) return; const k = b.dataset.vs;
+        if (k === "seat") S.go("seat");
+        else if (k === "seatok") { VR.recenter(); S.go("wheel"); }
+        else if (k === "seatagain") { VR.recenter(); S.status("Seat recentred: keep looking straight ahead."); }
+        else if (k === "intro") S.go("intro");
+        else if (k === "wheel") S.go("wheel");
+        else if (k === "shift") S.go("shifter");
+        else if (k === "skip") { H.cal = null; try { localStorage.removeItem(CAL_KEY); } catch (x) { } H.restoreDefault(); S.go("done"); }
+        else if (k === "done") S.go("done");
+        else if (k === "finish") S.close();
+      };
+    },
+    close() {
+      const S = VR.setup, sim = S.sim, H = VR.hands; H.phase = "drive"; S.step = null; if (!sim) return;
+      if (sim.scn && sim.scn.id === "vr-lobby" && sim.scn.menu) { sim.scn.menu(sim); return; }
+      sim.over.onclick = S.wasClick; sim.over.hidden = S.wasHidden; sim.paused = S.wasPaused; sim.last = performance.now();
+    }
+  };
 
   // ═══════════════ MENUS IN VR ═══════════════
   // Whatever card the drill is showing (briefing, pause, results, a coach question, the VR menu) is drawn on a panel
@@ -1533,6 +1586,7 @@
     const C = VR.card; if (!C) return;
     const show = VR.presenting && !sim.over.hidden;
     C.m.visible = show; (VR.beams || []).forEach(b => b.visible = show);
+    const up = !!sim.over.querySelector(".vr-up"); C.m.position.set(.37, up ? 1.5 : 1.22, up ? -1.0 : -1.1); C.m.scale.setScalar(up ? .6 : 1); C.m.rotation.x = up ? .15 : 0;   // during the wheel steps: up and out of the way
     if (!show) { C.sig = ""; return; }
     // where you're pointing
     const t = T(), ray = new t.Raycaster(); let hov = -1;
@@ -2120,13 +2174,13 @@
     const roofBack = new t.Mesh(new t.BoxGeometry(1.4, .06, .2), dashM); roofBack.position.set(0, 1.85, 1.35); g.add(roofBack);
     const boot = new t.Mesh(P(MZ.boot, DIM.wid, .07), paint); g.add(boot);   // the back of your car, seen when you look round
     // mirrors: interior (top middle, to the driver's left), right door, left door
-    const mk = (w, h, tex, pos, rot) => { const fr = new t.Mesh(new t.BoxGeometry(w + .03, h + .03, .03), dashM); fr.position.copy(pos); fr.rotation.set(rot.x, rot.y, 0); g.add(fr); const m = new t.Mesh(new t.PlaneGeometry(w, h), new t.MeshBasicMaterial({ map: tex })); m.position.set(0, 0, .018); m.layers.set(1); fr.add(m); return fr; };   // glass on layer 1: mirror cameras never see their own texture
+    const glass = [], mk = (w, h, tex, pos, rot) => { const fr = new t.Mesh(new t.BoxGeometry(w + .03, h + .03, .03), dashM); fr.position.copy(pos); fr.rotation.set(rot.x, rot.y, 0); g.add(fr); const m = new t.Mesh(new t.PlaneGeometry(w, h), new t.MeshBasicMaterial({ map: tex })); m.position.set(0, 0, .018); glass.push(m); fr.add(m); return fr; };   // the glass is hidden while the mirror cameras draw (not a layer: in a headset layers 1 and 2 belong to one eye each)
     mk(.26, .075, mirrorTex.c, new t.Vector3(.04, 1.54, -.72), { x: .12, y: -.2 });
     mk(.16, .11, mirrorTex.r, new t.Vector3(.95, 1.1, -.86), { x: 0, y: -.45 });
     mk(.16, .11, mirrorTex.l, new t.Vector3(-.95, 1.1, -.86), { x: 0, y: .6 });
     // the inside of a 2012 Mazda 6: live dials, warning lights, gear lever, pedals, handbrake, stalks (mazda.js)
     const mz = window.SimMazda ? window.SimMazda.build(g) : null; if (mz) window.SimMazda.wheel(wheel);
-    return { wheel, mz };
+    return { wheel, mz, glass };
   }
 
   // ───────── dash screen, top middle of the dash like a modern hatchback: reversing camera with guide lines in reverse,
@@ -2139,10 +2193,10 @@
     g.add(new t.Mesh(new t.BoxGeometry(.27, .176, .022), dark));
     const stalk = new t.Mesh(new t.BoxGeometry(.07, .08, .03), dark); stalk.position.set(0, -.1, -.012); g.add(stalk);
     const rt = new t.WebGLRenderTarget(SCR_W, SCR_H, { encoding: t.sRGBEncoding }); rt.texture.wrapS = t.RepeatWrapping;
-    // glass and label on layer 1: no camera that draws into the screen can see the screen itself
-    const glass = new t.Mesh(new t.PlaneGeometry(.25, .156), new t.MeshBasicMaterial({ map: rt.texture })); glass.position.z = .0115; glass.layers.set(1); g.add(glass);
+    // glass and label are hidden while anything draws into the mirrors or the screen, so none sees its own picture
+    const glass = new t.Mesh(new t.PlaneGeometry(.25, .156), new t.MeshBasicMaterial({ map: rt.texture })); glass.position.z = .0115; g.add(glass);
     const lc = document.createElement("canvas"); lc.width = 512; lc.height = 40; const lt = new t.CanvasTexture(lc); lt.encoding = t.sRGBEncoding;
-    const label = new t.Mesh(new t.PlaneGeometry(.25, .0195), new t.MeshBasicMaterial({ map: lt, transparent: true })); label.position.set(0, .078 - .00975, .012); label.layers.set(1); g.add(label);
+    const label = new t.Mesh(new t.PlaneGeometry(.25, .0195), new t.MeshBasicMaterial({ map: lt, transparent: true })); label.position.set(0, .078 - .00975, .012); g.add(label);
     // the camera above the number plate: wide, tilted down at the road, and mirrored like every real one
     const cam = new t.PerspectiveCamera(70, SCR_W / SCR_H, .05, 80); cam.position.set(0, .95, 2.14); cam.rotation.order = "YXZ"; cam.rotation.set(-.55, Math.PI, 0); cam.layers.enable(3); rig.add(cam);
     const top = new t.OrthographicCamera(-1, 1, 1, -1, 1, 200);
@@ -2157,7 +2211,7 @@
       for (let i = 0; i < PN - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } geo.setIndex(idx);
       const m = new t.Mesh(geo, new t.MeshBasicMaterial({ color: 0xffd60a, transparent: true, opacity: .9, depthTest: false, side: t.DoubleSide })); m.layers.set(3); m.renderOrder = 6; m.frustumCulled = false; guides.add(m); return m;
     });
-    return { rt, glass, lc, lt, cam, top, guides, path, mode: null };
+    return { rt, glass, label, lc, lt, cam, top, guides, path, mode: null };
   }
   // reverse 3.5 m about the rear axle (the same model as the car) and trace the two back corners, car-local
   function dashPath(D, steer) {
@@ -2574,10 +2628,12 @@
       // mirrors are plain cameras: switch the headset off for them, then back on for your view
       // (in the headset the frame is drawn into the headset's own target: put that back afterwards, not the screen)
       const xrWas = R.xr.enabled, rtWas = R.getRenderTarget(); R.xr.enabled = false;
+      const selfPics = this.cock.glass.concat(this.dash ? [this.dash.glass, this.dash.label] : []), picVis = selfPics.map(m => m.visible); selfPics.forEach(m => { m.visible = false; });
       // in the headset, a quality guard keeps frames smooth: mirrors refresh less often, then the view shortens
       const q = inVR ? this.vrQuality() : 0, every = [1, 3, 5, 8][q];
       for (const k of ["c", "r", "l"]) { if (k !== "c" && (this.fc + (k === "r" ? 0 : 1)) % 2) continue; if (every > 1 && (this.fc + (k === "c" ? 0 : k === "r" ? 1 : 2)) % every) continue; R.setRenderTarget(this.mr[k]); R.render(this.scene, this.mcam[k]); }
       this.drawDash(R, every);
+      selfPics.forEach((m, i) => { m.visible = picVis[i]; }); if (this.dash) this.dash.glass.visible = this.dash.mode !== "off";
       R.xr.enabled = xrWas;
       R.setRenderTarget(rtWas);
       if (this.door && car.mph > 2) this.door = null;   // moving off shuts it
@@ -7747,6 +7803,7 @@
   const FEEL = [
     { k: "centre", label: "Feet off the pedals. Hold the wheel dead straight (logo level), then Set.", why: "Straight ahead becomes truly straight, and I measure how much the pedals twitch at rest so a resting foot never moves the car." },
     { k: "half", label: "Turn the wheel exactly half a turn to the right (logo upside down). Hold it there, then Set.", why: "Measures your wheel's real rotation, so half a turn on the G920 is half a turn in the car, whatever G HUB is set to." },
+    { k: "floor", label: "Both feet: push the accelerator and the clutch right to the floor. Hold them there, then Set (or press A).", why: "Some pedals never quite read 100% (yours stopped at about 90%). Wherever your floor is becomes full: the clutch fully down, full gas." },
     { k: "brake", label: "Press the brake as hard as you would in an emergency stop. Hold it, then Set.", why: "The G920 brake gets very stiff near the end. Your firm stop becomes full braking, and lighter presses scale from there." },
     { k: "bite", label: "Clutch to the floor, then lift it slowly to where your instructor's car starts to bite. Hold it there, then Set.", why: "The car bites where your real car does, so the clutch control you practise here carries over." },
     { k: "test", label: "Try it all out: turn, press each pedal, find the bite. Then Save.", why: "" }
@@ -7803,6 +7860,10 @@
       let r = 360 / d; const near = SNAP.find(v => Math.abs(r - v) / v < .07); r = near || Math.round(r / 10) * 10;
       feel.range = r;
       feel.note = r === 900 ? "" : `Your wheel turns ${r}° lock to lock. That's fine, it now matches; 900° in G HUB is closest to a real hatchback.`;
+    } else if (st.k === "floor") {
+      const c = P.pedalRaw(p, m.clutch), a = P.pedalRaw(p, m.throttle);
+      if (c < .5 || a < .5) return say(c < .5 ? "Push the clutch right down to the floor, and hold it." : "Push the accelerator right down too, and hold it.");
+      m.clutch.full = p.axes[m.clutch.i]; m.throttle.full = p.axes[m.throttle.i];
     } else if (st.k === "brake") {
       if (P.pedalRaw(p, m.brake) < .25) return say("Press harder: as hard as an emergency stop, and hold it.");
       m.brake.full = p.axes[m.brake.i];
@@ -7823,7 +7884,7 @@
       <div class="wiz"><div class="card">
         ${done ? `<div class="wiz-step">All set.</div><p class="sub">Save to use this mapping every time.</p><div class="row" style="margin-top:12px"><button class="btn" data-d="wsave">Save mapping</button><button class="btn ghost small" data-d="wredo">Start again</button></div>`
           : `<div class="sub">Step ${wiz.i + 1} of ${STEPS.length}</div><div class="wiz-step">${esc(st.label)}</div>
-          <p class="sub" id="wizmsg">${esc(wiz.msg || (st.type === "button" ? "Waiting for a button…" : st.type === "gear" ? "Waiting for the gear…" : "Do it now, then click Next."))}</p>
+          <p class="sub" id="wizmsg">${esc(wiz.msg || (st.type === "button" ? "Waiting for a button…" : st.type === "gear" ? "Waiting for the gear…" : "Do it now. It moves on by itself once it's seen it (or press A on the wheel, or click Next)."))}</p>
           <div class="row" style="margin-top:12px">${st.type === "axis" || st.type === "pedal" ? `<button class="btn small" data-d="wnext">Next</button>` : ""}<button class="btn ghost small" data-d="wskip">Skip</button><button class="btn ghost small" data-d="back">Cancel</button></div>`}
         <h3 class="mini">Mapped so far</h3><div class="maplist">${mapSummary(wiz.map, new Set(STEPS.slice(0, wiz.i).map(s => s.k)))}</div>
       </div>
@@ -7861,6 +7922,14 @@
       if (st) {
         if (!wiz.base) { wiz.base = p.axes.slice(); wiz.ext = {}; wiz.pressedAtStart = new Set(p.buttons.map((b, i) => b.pressed ? i : -1).filter(i => i >= 0)); }
         p.axes.forEach((v, i) => { const e = wiz.ext[i] || (wiz.ext[i] = { min: v, max: v }); e.min = Math.min(e.min, v); e.max = Math.max(e.max, v); });
+        // steering and pedals move on by themselves: the full movement seen, then back to rest (or A on the wheel)
+        if (st.type === "axis" || st.type === "pedal") {
+          const a0 = !!(p.buttons[0] && p.buttons[0].pressed); if (a0 && !wiz.prevA) { wiz.prevA = a0; wizNext(); loop = requestAnimationFrame(wizTick); return; } wiz.prevA = a0;
+          let bi = -1, br = 0; for (const [i, e] of Object.entries(wiz.ext)) { const r = e.max - e.min; if (r > br) { br = r; bi = +i; } }
+          const need = st.type === "axis" ? 1.5 : 1.1, back = bi >= 0 && Math.abs(p.axes[bi] - wiz.base[bi]) < .12;
+          const ml = box.querySelector("#wizmsg"); if (ml && bi >= 0 && !wiz.msg) ml.textContent = br >= need ? (back ? "Got it ✓" : st.type === "axis" ? "Got it: now back to the centre" : "Got it: now let go") : `Seen ${Math.min(100, Math.round(br / need * 100))}%: keep going, all the way`;
+          if (br >= need && back) { wiz.autoT = (wiz.autoT || 0) + 1; if (wiz.autoT > 20) { wiz.autoT = 0; wizNext(); loop = requestAnimationFrame(wizTick); return; } } else wiz.autoT = 0;
+        }
         if (st.type === "button" || st.type === "gear") {
           const i = p.buttons.findIndex((b, j) => b.pressed && !wiz.pressedAtStart.has(j) && !(st.type === "button" && wiz.used.has(j)));
           if (i >= 0) {
