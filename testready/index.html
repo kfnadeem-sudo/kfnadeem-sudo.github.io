@@ -914,6 +914,7 @@
       const rem = !useWheel && Input.remote && Input.remote.wheel !== false && performance.now() - Input.remote.at < 400 ? Input.remote : null;   // only the G920 itself drives from the laptop
       const xr = !useWheel && !rem && window.SimVR && window.SimVR.presenting ? window.SimVR.pads() : null;
       if (rem) {
+        lastSource = "wheel";   // the laptop's G920: name wheel controls (clutch pedal, paddles), never keys
         Object.assign(k, { steer: rem.steer, throttle: rem.throttle, brake: rem.brake, clutch: rem.clutch }); Input.wheelDeg = rem.wheelDeg;
         presses.push(...(Input.remoteQ || []).splice(0));
         if (rem.shifter !== null && rem.shifter !== undefined) { const g = rem.shifter; if (remGear !== g || (car && car.gear !== g && !(car.grind > 0))) gearReq = g; remGear = g; Input.shifter = g; }
@@ -5978,7 +5979,7 @@
 // the G920 or the keyboard (whichever you're using). Each step waits until you've actually done it.
 (function () {
   const W = () => window.SimWorld;
-  const wheel = () => { const I = window.SimInput; return !!(I.pad() && I.map.done); };
+  const wheel = () => { const I = window.SimInput, r = I.remote; return !!(I.pad() && I.map.done) || !!(r && r.wheel && performance.now() - r.at < 1500); };   // a G920 here, or the laptop's one in the headset
   const K = (w, k) => wheel() ? w : k;   // pick the wording for the wheel or the keyboard
 
   // (wheel wording avoids single letters in brackets, which the hint system would swap for wheel buttons)
