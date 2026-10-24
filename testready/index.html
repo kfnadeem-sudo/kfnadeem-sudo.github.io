@@ -1440,19 +1440,23 @@
     el.style.cssText = "position:fixed;inset:0;z-index:9000;display:grid;place-items:center;background:#0d1117;color:#e8eef6;font-family:system-ui,sans-serif;text-align:center;padding:24px";
     el.innerHTML = `<div style="max-width:620px"><div style="font:800 44px system-ui;margin-bottom:6px">Test Ready</div><div style="opacity:.75;margin-bottom:30px">Driving in VR · theory questions are on your laptop</div>
       <button id="vrGo" style="font:800 30px system-ui;padding:26px 48px;border-radius:22px;border:0;background:#3d7dff;color:#fff;cursor:pointer">Start driving in VR</button>
-      <div id="vrWheel" style="margin-top:26px;font-size:18px;opacity:.85"></div>
-      ${window.QUEST_APP ? `<div id="vrPair" style="margin-top:22px;font-size:16px;opacity:.9"></div>` : ""}
+      <div style="margin:30px auto 0;max-width:560px;text-align:left;display:grid;gap:14px;font-size:18px">
+        ${window.QUEST_APP ? `<div><b>1 · Laptop</b><div id="vrPair" style="margin-top:4px;font-size:16px;opacity:.9"></div></div>` : ""}
+        <div><b>${window.QUEST_APP ? "2" : "1"} · Wheel</b><div id="vrWheel" style="margin-top:4px;font-size:16px;opacity:.9"></div></div>
+        <div><b>${window.QUEST_APP ? "3" : "2"} · Seat and wheel position</b><div id="vrSeat" style="margin-top:4px;font-size:16px;opacity:.9"></div></div>
+      </div>
       ${window.QUEST_APP ? "" : `<button id="vrFull" style="margin-top:34px;font:600 15px system-ui;background:none;border:0;color:#8fa6c2;text-decoration:underline;cursor:pointer">Use the full app instead</button>`}
       <div style="margin-top:30px;font-size:12px;opacity:.5">Real-roads map data © OpenStreetMap contributors · Contains OS data © Crown copyright and database right · LIDAR © Environment Agency</div></div>`;
     document.body.appendChild(el);
     const wheelLine = () => {
       const r = window.SimInput && window.SimInput.remote, live = r && r.wheel && performance.now() - r.at < 1500, w = document.getElementById("vrWheel");   // the G920 itself, not just the laptop
-      if (w) w.textContent = live ? (r.cal === false ? "✓ G920 connected · not calibrated yet: on the laptop, Drive → Calibrate wheel (1 minute)" : "✓ G920 connected and calibrated") : window.QUEST_APP ? "No wheel: drive with the controllers, or put them down and hold the virtual wheel with your hands." : "Wheel not connected: on the laptop, open Test Ready VR and press “Send wheel to headset”. (Or drive with the controllers.)";
+      const seat = document.getElementById("vrSeat"); if (seat) seat.textContent = VR.hands.load() ? "✓ Set up (redo any time: menu → Set up seat and wheel)" : "You'll set it up when you start: about 30 seconds, step by step.";
+      if (w) w.textContent = live ? (r.cal === false ? "✓ G920 connected · not calibrated yet: on the laptop, Drive → Calibrate (1 minute)" : "✓ G920 connected and calibrated") : window.QUEST_APP ? ((window.QLink && window.QLink.connected) ? "Not seen yet: on the laptop, press any pedal (and check Drive → Quest 3 says Sending wheel). No wheel? The controllers work too." : "Waits for the laptop. (No wheel? The controllers work too.)") : "Wheel not connected: on the laptop, open Test Ready VR and press “Send wheel to headset”. (Or drive with the controllers.)";
       const p = document.getElementById("vrPair"), L = window.QLink; if (!p || !L) return;
       const code = L.savedCode();
       if (!code) { if (!p.querySelector("input")) p.innerHTML = `Link your laptop for the G920 and progress (optional): type the code shown in Test Ready on the laptop<br><input id="vrCode" maxlength="6" style="margin-top:10px;font:700 26px system-ui;width:180px;text-align:center;letter-spacing:4px;padding:8px;border-radius:12px;border:0;text-transform:uppercase"> <button id="vrPairGo" style="font:700 20px system-ui;padding:10px 18px;border-radius:12px;border:0;background:#2a4f9e;color:#fff">Link</button>`;
         const b = p.querySelector("#vrPairGo"); if (b && !b.onclick) b.onclick = () => { const v = p.querySelector("#vrCode").value; if (v.trim().length >= 4) { L.join(v); p.innerHTML = ""; } }; return; }
-      p.innerHTML = L.connected ? `✓ Laptop linked (${code})` : `Looking for your laptop (code ${code}): open Test Ready on it… <a href="#" id="vrUnpair" style="color:#8fa6c2">change</a>`;
+      p.innerHTML = L.connected ? `✓ Linked (${code})` : `Not linked yet: on the laptop, open Test Ready (Start Test Ready.bat) and leave it open. Code ${code}. <a href="#" id="vrUnpair" style="color:#8fa6c2">change</a>`;
       const u = p.querySelector("#vrUnpair"); if (u) u.onclick = e => { e.preventDefault(); try { localStorage.removeItem("tr.pair"); } catch (x) { } if (L.peer) try { L.peer.destroy(); } catch (x) { } L.connected = false; };
     };
     wheelLine(); VR._wl = setInterval(wheelLine, 1000);
@@ -1489,11 +1493,20 @@
       const show = (page, n = 0) => {
         let body = "";
         if (page === "root") {
-          const items = [["today", "Today's drive (3 drills)"], ...groups.map(g => ["g:" + g, g]), ["mock", "Mock driving test"]], per = 6, pg = items.slice(n * per, n * per + per);
+          const items = [["today", "Today's drive (3 drills)"], ...groups.map(g => ["g:" + g, g]), ["mock", "Mock driving test"]], per = 5, pg = items.slice(n * per, n * per + per);
           body = `<div class="sim-kicker">Test Ready · VR</div><h2>What do you want to drive?</h2><p>Point and pinch, pull the trigger, or use A / B / X / Y on the wheel.</p>
             <div class="sim-row">${pg.map(([k, l], i) => `<button class="sim-btn${i ? "" : " primary"}" data-l="${k}">${l}</button>`).join("")}
             ${items.length > per ? `<button class="sim-btn" data-l="more:${(n + 1) % Math.ceil(items.length / per)}">More…</button>` : ""}
-            <button class="sim-btn" data-l="recentre">Recentre my seat</button><button class="sim-btn" data-l="recal">Set up seat and wheel</button><button class="sim-btn" data-l="exit">Exit VR</button></div>`;
+            <button class="sim-btn" data-l="recentre">Recentre my seat</button><button class="sim-btn" data-l="recal">Set up seat and wheel</button><button class="sim-btn" data-l="controls">Wheel controls</button><button class="sim-btn" data-l="exit">Exit VR</button></div>`;
+        } else if (page === "controls") {
+          const I = window.SimInput, b = I.map.buttons || {}, lab = k => I.label(b[k]);
+          body = `<div class="sim-kicker">Your wheel</div><h2>Wheel controls</h2><ul>
+            <li>Look round with your own head: mirrors, shoulders, out the back</li>
+            <li>Paddles: indicators (${lab("indL")} = left, ${lab("indR")} = right)</li>
+            <li>${lab("ignition")}: start the engine (clutch down) · ${lab("handbrake")}: handbrake</li>
+            <li>${lab("pause")}: pause · ${lab("horn")}: horn</li>
+            <li>On menus: A / B / X / Y press the first four buttons</li></ul>
+            <div class="sim-row"><button class="sim-btn primary" data-l="back">Back</button></div>`;
         } else {
           const list = scns.filter(s => s.group === page), per = 8, pg = list.slice(n * per, n * per + per);
           body = `<div class="sim-kicker">${page}</div><h2>Pick a drill</h2>
@@ -1513,6 +1526,7 @@
         else if (k === "back") show("root");
         else if (k.startsWith("go:")) leaveFor(() => window.Sim.start(k.slice(3), "practice", record));
         else if (k === "recentre") VR.recenter();
+        else if (k === "controls") show("controls");
         else if (k === "recal") { VR.hands.attach(sim); VR.setup.open(sim); }
         else if (k === "exit") { VR.exit(); sim.close(); }
       };
@@ -7691,6 +7705,49 @@
     if (!st || st.idle) return `Headset connected${st && st.inVR ? " · in VR, at the menu" : " · not in VR yet"}.`;
     return `<b>Now driving:</b> ${esc(st.title)}${st.card ? ` · ${esc(st.card)}` : ` · ${st.mph} mph${st.step ? " · next: " + esc(st.step) : ""}`}<br>Faults so far: ${st.faults.minor} minor, ${st.faults.serious} serious or worse${st.msgs && st.msgs.length ? `<br><span style="opacity:.8">${esc(st.msgs[st.msgs.length - 1])}</span>` : ""}`;
   }
+  // ───────── getting set up: one checklist, one next thing to do (folds away once everything's ready)
+  function setupState() {
+    const p = I().pad(), m = I().map, L = window.QLink;
+    return [
+      { k: "plug", ok: !!p, title: "Plug in your G920", how: "Wheel USB into this laptop, pedals and shifter plugged into the wheel, and Logitech G HUB running (900°, centring spring on). Then <b>press any pedal</b>: the browser only sees a wheel after you touch it." },
+      { k: "map", ok: !!(p && m.done), title: "Set up the wheel", how: "Tells Test Ready which pedal, gear and paddle is which. About 2 minutes: do what it says, it moves on by itself (or press A on the wheel).", btn: ["setup", "Set up wheel"] },
+      { k: "cal", ok: !!(p && m.done && m.feel), title: "Calibrate it", how: "Makes it feel like the real car: straight ahead, wheel rotation, pedals to the floor, brake, clutch bite. About 1 minute.", btn: ["calib", "Calibrate"] },
+      { k: "quest", ok: !!(L && L.connected), optional: true, title: "Link your Quest (for VR)", how: `In the headset open <b>Test Ready</b> (App Library → Unknown sources) and type <b style="letter-spacing:2px">${esc((L && L.code) || "")}</b> once. After that they find each other by themselves whenever both are open.` }
+    ];
+  }
+  function setupCard() {
+    if (VRP) return "";
+    const st = setupState(), core = st.filter(x => !x.optional), next = st.find(x => !x.ok && !x.optional) || st.find(x => !x.ok);
+    if (!next) return `<div class="card" id="setupCard" style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b>✓ All set</b><span class="sub" style="flex:1">Wheel set up and calibrated, Quest linked.</span><button class="btn ghost small" data-d="controls">Wheel controls</button><button class="btn ghost small" data-d="setup">Redo setup</button></div>`;
+    if (core.every(x => x.ok) && next.optional) return `<div class="card" id="setupCard" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b>✓ Wheel ready</b><span class="sub" style="flex:1">For VR: ${next.how}</span><button class="btn ghost small" data-d="controls">Wheel controls</button></div></div>`;
+    return `<div class="card" id="setupCard" style="margin-bottom:12px;border:1px solid var(--accent,#5b8cff)"><h3 style="margin:0 0 10px">Get set up</h3>
+      ${st.map((x, i) => { const cur = x === next; return `<div style="display:grid;grid-template-columns:28px 1fr;gap:10px;padding:8px 0;border-top:${i ? "1px solid var(--line)" : "0"};${!cur && !x.ok ? "opacity:.55" : ""}">
+        <div style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;${x.ok ? "background:#2e7d4f;color:#fff" : cur ? "background:var(--accent,#5b8cff);color:#fff" : "border:2px solid var(--line)"}">${x.ok ? "✓" : i + 1}</div>
+        <div><b>${x.title}</b>${x.optional ? ' <span class="sub">(optional)</span>' : ""}${cur ? `<p class="sub" style="margin:4px 0 8px">${x.how}</p>${x.btn ? `<button class="btn" data-d="${x.btn[0]}">${x.btn[1]}</button>` : ""}` : ""}</div></div>`; }).join("")}
+      <p class="sub" style="margin:8px 0 0">You can drive with the keyboard any time; this is for the wheel and the headset. <button class="btn ghost small" data-d="controls">Wheel controls</button></p></div>`;
+  }
+  // what every control does, from your own button setup
+  function controlsView() {
+    const P = I(), b = P.map.buttons || {}, lab = k => esc(P.label(b[k]));
+    const row = (what, how) => `<div style="display:grid;grid-template-columns:minmax(150px,1fr) 2fr;gap:12px;padding:8px 0;border-top:1px solid var(--line)"><b>${what}</b><span>${how}</span></div>`;
+    return `<div class="pagehead"><h1>Your wheel controls</h1><p>What everything does in the car. The same in the headset, except you look round with your own head there.</p></div>
+      <div class="card" style="max-width:760px">
+        ${row("Pedals", "Left: clutch · middle: brake · right: accelerator")}
+        ${row("Gear stick", "Clutch down, then into gear (1–6). Reverse: push the stick down, then across into R. Gears won't go in without the clutch.")}
+        ${row("Indicators", `Paddles behind the wheel: ${lab("indL")} = left, ${lab("indR")} = right. Same paddle again cancels; they also cancel themselves after a turn.`)}
+        ${row("Start the engine", `${lab("ignition")} (clutch down first)`)}
+        ${row("Handbrake", `${lab("handbrake")}: on / off`)}
+        ${row("Mirror check", `${lab("mirror")}`)}
+        ${row("Look over your shoulder", `${lab("lookR")} / ${lab("lookL")}: hold about a second for the blind spot`)}
+        ${row("Look back (reversing)", `${lab("lookBack")}: hold`)}
+        ${row("Horn", lab("horn"))}
+        ${row("Lights / wipers", `${lab("lights")} / ${lab("wipers")}`)}
+        ${row("Pause", lab("pause"))}
+        ${row("Views (practice)", `${lab("pip")}: bird's-eye / top-down · ${lab("shoulder")}: shoulder lines${b.screen != null ? " · " + lab("screen") + ": dash screen" : ""}`)}
+        ${row("Menus in the headset", "A / B / X / Y press the first four buttons on any card. Or point a controller (or your hand) and pull the trigger (or pinch).")}
+        <div class="row" style="margin-top:14px"><button class="btn small" data-d="back">Done</button><button class="btn ghost small" data-d="setup">Change a button</button></div>
+      </div>`;
+  }
   function vrHelp() {
     if (window.SimVR && window.SimVR.supported === false) return `<div class="card dquest"><b>No headset here.</b> This page is for the Quest 3's browser: open it there to drive in VR. On this screen the drills run normally.</div>`;
     return `<div class="card dquest"><b>Look with your own head.</b> Glance at the mirrors to check them; turn right round over your shoulder for a blind spot. The examiner marks where you actually looked.
@@ -7741,6 +7798,7 @@
       </details>`;
     }).join("");
     return `<div class="pagehead"><h1>${VRP ? "Drive in VR" : "Drive"}</h1></div>
+      ${setupCard()}
       ${VRP ? vrHelp() : questOpen ? questPanel() : ""}
       ${ok ? "" : `<div class="card" style="margin-bottom:14px"><b>3D isn't available in this browser.</b><p class="sub">Open Test Ready in Chrome or Edge with hardware acceleration switched on.</p></div>`}
       ${bar}
@@ -7977,7 +8035,7 @@
     if (!box) return;
     if (picker && view !== "map") { picker.stop(); picker = null; }
     if (view === "map") return mapView();
-    box.innerHTML = view === "setup" ? wizView() : view === "feel" ? feelView() : view === "opts" ? optsView() : listView();
+    box.innerHTML = view === "controls" ? controlsView() : view === "setup" ? wizView() : view === "feel" ? feelView() : view === "opts" ? optsView() : listView();
     if (view === "setup" || view === "feel") { cancelAnimationFrame(loop); loop = requestAnimationFrame(wizTick); }
   }
   function onClick(e) {
@@ -8009,6 +8067,7 @@
     else if (a === "mode") { mode = b.dataset.m; try { localStorage.setItem("dt-sim-mode", mode); } catch (err) { } render(); }
     else if (a === "setup") { startWizard(); render(); }
     else if (a === "opts") { view = "opts"; render(); }
+    else if (a === "controls") { view = "controls"; render(); }
     else if (a === "pickmap") { view = "map"; render(); }
     else if (a === "back") { view = "list"; render(); }
     else if (a === "wnext") wizNext();
@@ -8026,6 +8085,11 @@
   }
   function onChange(e) { const k = e.target.dataset && e.target.dataset.opt; if (!k) return; I().opts[k] = e.target.checked; I().saveOpts(); }
   window.addEventListener("gamepadconnected", () => { if (box && document.body.contains(box) && view === "list") render(); });
+  setInterval(() => {   // the checklist ticks itself off as things happen (a pedal pressed, the Quest linking)
+    if (!box || !document.body.contains(box) || view !== "list") return;
+    const el = box.querySelector("#setupCard"), html = setupCard();
+    if ((el ? el.outerHTML : "") !== html.replace(/\n\s*/g, "") && el) { const tmp = document.createElement("div"); tmp.innerHTML = html; const nu = tmp.firstElementChild; if (nu && nu.outerHTML !== el.outerHTML) el.replaceWith(nu); }
+  }, 1200);
 
   // one drill after another: the next starts when you close the previous results
   function runPlaylist(ids, doneMsg) {
