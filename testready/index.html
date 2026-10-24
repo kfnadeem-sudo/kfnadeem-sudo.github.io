@@ -1291,9 +1291,12 @@
       }
       // each drill has its own car: hands ride with its head, the windows and the wheel mount with its cockpit
       for (const h of H.xrHands) sim.head.add(h);
-      H.hole = new t.Mesh(H.ellGeo(.3, .25), H.holeM); H.hole.renderOrder = 999; H.hole.visible = false; sim.rig.add(H.hole);
-      H.shiftHole = new t.Mesh(H.ellGeo(.13, .16), H.holeM); H.shiftHole.renderOrder = 999; H.shiftHole.visible = false; sim.rig.add(H.shiftHole);
-      const w = sim.cock.wheel; w.parent.add(H.mount); H.mount.add(w); H.mount.position.set(.37, .9, -.6); H.mount.rotation.set(-.5, 0, 0); H.mount.quaternion.setFromEuler(H.mount.rotation); w.position.set(0, 0, 0); w.rotation.x = 0;
+      if (!H.hole || H.hole.parent !== sim.rig) {   // once per drill (attach runs again when you redo the setup)
+        H.hole = new t.Mesh(H.ellGeo(.3, .25), H.holeM); H.hole.renderOrder = 999; H.hole.visible = false; sim.rig.add(H.hole);
+        H.shiftHole = new t.Mesh(H.ellGeo(.13, .16), H.holeM); H.shiftHole.renderOrder = 999; H.shiftHole.visible = false; sim.rig.add(H.shiftHole);
+      }
+      const w = sim.cock.wheel; if (w.parent !== H.mount) { w.parent.add(H.mount); H.mount.add(w); }
+      H.mount.position.set(.37, .9, -.6); H.mount.rotation.set(-.5, 0, 0); H.mount.quaternion.setFromEuler(H.mount.rotation); w.position.set(0, 0, 0); w.rotation.x = 0;
       if (H.cal) H.apply();
       if (H.phase === "off") H.phase = "drive";
     },
