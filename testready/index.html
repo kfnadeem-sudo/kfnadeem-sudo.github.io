@@ -2481,7 +2481,7 @@
       const D = this.dash, car = this.car; if (!D) return;
       const set = window.SimInput.opts.dashScreen || "auto";
       const m = set === "auto" ? (car.gear === -1 ? "cam" : car.mph < 8 ? "360" : "map") : set;
-      if (m !== D.mode) { D.mode = m; D.glass.visible = m !== "off"; D.rt.texture.repeat.x = m === "cam" ? -1 : 1; if (m !== "off") dashLabel(D, m); this.dashFc = -1; }
+      if (m !== D.mode) { D.mode = m; D.rt.texture.repeat.x = m === "cam" ? -1 : 1; if (m !== "off") dashLabel(D, m); this.dashFc = -1; }
       if (m === "off") return;
       this.dashFc = (this.dashFc ?? -1) + 1; if (this.dashFc % ((m === "map" ? 3 : 2) * every)) return;
       R.setRenderTarget(D.rt);
