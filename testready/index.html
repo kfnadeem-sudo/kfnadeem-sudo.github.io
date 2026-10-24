@@ -1075,12 +1075,14 @@
       if (VR.session) { VR.recenterSoon(); return; }
       // passthrough ("immersive-ar") when it's on and the headset can: the sim everywhere except a window where your real
       // G920, shifter and hands are; otherwise plain VR with tracked hands snapped to the virtual wheel
-      const wantAR = VR.arSupported && (window.SimInput.opts.vrPassthrough !== false);
+      const wantAR = false;   // full VR always (passthrough got in the way); the Mazda's own wheel and cockpit
       navigator.xr.requestSession(wantAR ? "immersive-ar" : "immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] }).then(s => {
         VR.session = s; VR.ar = wantAR;
         s.addEventListener("end", () => { VR.session = null; VR.hands && VR.hands.reset(); const cur = VR.sim; if (cur && !cur.ended && !cur.paused && cur.running) cur.pause(); if (cur && cur.scn.id === "vr-lobby") cur.close(); if (VR.showLauncher) VR.showLauncher(); });
+        // headset off and back on (or the Quest recentred itself): put your seat back automatically
+        s.addEventListener("visibilitychange", () => { if (s.visibilityState === "visible") VR.recenterSoon(); });
         return VR.sim.renderer.xr.setSession(s);
-      }).then(() => { VR.recenterSoon(); VR.hands && VR.hands.start(VR.sim); }).catch(e => { if (VR.sim && VR.sim.flash) VR.sim.flash("Couldn't start VR: " + (e && e.message || e), "warn"); });
+      }).then(() => { const rs = VR.sim.renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener("reset", () => VR.recenterSoon()); VR.recenterSoon(); VR.hands && VR.hands.start(VR.sim); }).catch(e => { if (VR.sim && VR.sim.flash) VR.sim.flash("Couldn't start VR: " + (e && e.message || e), "warn"); });
     },
     exit() { if (VR.session) { try { VR.session.end(); } catch (e) { } } },
 
@@ -1143,15 +1145,19 @@
         m.position.set(...pos); m.rotation.x = rx; m.renderOrder = 5; m.visible = false; sim.rig.add(m);
         return { cv, g: cv.getContext("2d"), tex, m };
       };
-      VR.dash = mk(.34, .15, 680, 300, [.37, 1.0, -.82], -.35);
-      VR.msg = mk(.95, .32, 950, 320, [.37, 1.36, -1.55], 0);
+      // no floating speed / gear panel: the Mazda's own dials show all that. What to do now sits low, just above the
+      // centre console, angled up at you: a glance down, like a phone in a low holder, never in front of the road
+      VR.dash = null;
+      VR.msg = mk(.40, .135, 950, 320, [.02, .9, -.64], -.75); VR.msg.m.rotation.order = "YXZ"; VR.msg.m.rotation.y = .25;   // below the dash line: never over the road
     },
     drawPanels(sim, data) {
-      if (!VR.dash) return;
-      const show = VR.presenting; VR.dash.m.visible = show; VR.msg.m.visible = show;
+      if (!VR.msg) return;
+      const show = VR.presenting; VR.msg.m.visible = show;
       if (!show) return;
       const nowT = sim.t; if (nowT - (VR.panelT ?? -1) < 1 / 12) return; VR.panelT = nowT;
-      const car = sim.car, g = VR.dash.g, W = 680, H = 300;
+      const car = sim.car;
+      if (VR.dash) {   // (the old floating speed / gear panel, gone)
+      const g = VR.dash.g, W = 680, H = 300;
       g.clearRect(0, 0, W, H);
       g.fillStyle = "rgba(10,12,16,.92)"; rr(g, 4, 4, W - 8, H - 8, 34); g.fill();
       // indicators
@@ -1169,6 +1175,7 @@
       if (car.handbrake) { g.fillStyle = "#ff6b63"; g.font = "800 28px Arial"; g.fillText("(P) HANDBRAKE", W / 2, 50); }
       if (!car.engineOn) { g.fillStyle = "#ffb74d"; g.font = "800 28px Arial"; g.fillText("ENGINE OFF", W / 2, 50); }
       VR.dash.tex.needsUpdate = true;
+      }
       // messages: the examiner's instruction, the checklist, the gap meter and the latest hints/faults
       const m = VR.msg.g, MW = 950, MH = 320; m.clearRect(0, 0, MW, MH);
       const lines = [];
@@ -1297,7 +1304,7 @@
         H.shiftHole = new t.Mesh(H.ellGeo(.13, .16), H.holeM); H.shiftHole.renderOrder = 999; H.shiftHole.visible = false; sim.rig.add(H.shiftHole);
       }
       const w = sim.cock.wheel; if (w.parent !== H.mount) { w.parent.add(H.mount); H.mount.add(w); }
-      H.mount.position.set(.37, .9, -.6); H.mount.rotation.set(-.5, 0, 0); H.mount.quaternion.setFromEuler(H.mount.rotation); w.position.set(0, 0, 0); w.rotation.x = 0;
+      H.mount.position.set(.37, .86, -.6); H.mount.rotation.set(-.5, 0, 0); H.mount.quaternion.setFromEuler(H.mount.rotation); w.position.set(0, 0, 0); w.rotation.x = 0;
       if (H.cal) H.apply();
       if (H.phase === "off") H.phase = "drive";
     },
@@ -1349,7 +1356,7 @@
     // the standard wheel position (setup skipped): the car's own wheel, no window
     restoreDefault() {
       const sim = H.sim; if (!sim || !H.mount) return;
-      H.mount.position.set(.37, .9, -.6); H.mount.rotation.set(-.5, 0, 0); sim.cock.wheel.scale.setScalar(1); sim.cock.wheel.visible = true;
+      H.mount.position.set(.37, .86, -.6); H.mount.rotation.set(-.5, 0, 0); sim.cock.wheel.scale.setScalar(1); sim.cock.wheel.visible = true;
       if (H.hole) H.hole.visible = false; if (H.shiftHole) H.shiftHole.visible = false;
     },
     // put the virtual wheel (and the passthrough window) where the real wheel is
@@ -1508,7 +1515,8 @@
             <li>Look round with your own head: mirrors, shoulders, out the back</li>
             <li>Paddles: indicators (${lab("indL")} = left, ${lab("indR")} = right)</li>
             <li>${lab("ignition")}: start the engine (clutch down) · ${lab("handbrake")}: handbrake</li>
-            <li>${lab("pause")}: pause · ${lab("horn")}: horn</li>
+            <li>${lab("pause")}: pause (Recentre my seat is in there) · ${lab("horn")}: horn</li>
+            <li>${lab("pip")}: switch the centre screen (camera, 360°, map, off)</li>
             <li>On menus: A / B / X / Y press the first four buttons</li></ul>
             <div class="sim-row"><button class="sim-btn primary" data-l="back">Back</button></div>`;
         } else {
@@ -2005,10 +2013,10 @@
     add(box(.05, .26, .5), hard, .14, .44, -.9);   // transmission tunnel side, driver's footwell
     // the binnacle: a hood over the three dials
     // the binnacle: a visor arching over the top of the three dials (axis across the car, open towards you)
-    const hood = add(new t.CylinderGeometry(.11, .11, .4, 24, 1, true, .9, Math.PI - .9), soft.clone(), .37, 1.03, -.93, 0, 0, Math.PI / 2);
+    const hood = add(new t.CylinderGeometry(.06, .06, .4, 24, 1, true, .9, Math.PI - .9), soft.clone(), .37, 1.0, -.93, 0, 0, Math.PI / 2);
     hood.material.side = t.DoubleSide; hood.scale.set(1, 1, .75);
     // the cluster face: a live canvas texture, unlit so it reads like backlit dials
-    const face = new t.Group(); face.position.set(.37, 1.055, -.885); face.rotation.x = -.22; g.add(face);
+    const face = new t.Group(); face.position.set(.37, 1.0, -.885); face.rotation.x = -.22; g.add(face);   // real height: dials through the top of the wheel, bonnet over them
     const cv = document.createElement("canvas"); cv.width = CW; cv.height = CH; const tex = new t.CanvasTexture(cv); tex.encoding = t.sRGBEncoding; tex.anisotropy = 8;
     add(new t.PlaneGeometry(FW, FH), new t.MeshBasicMaterial({ map: tex }), 0, 0, 0, 0, 0, 0, face);
     // each dial sits at the back of a short tube with a chrome ring at its mouth
@@ -2042,10 +2050,30 @@
     const pedals = { clutch: pedal(.23, .07, .06, .58, -.98), brake: pedal(.37, .08, .065, .58, -.98), gas: pedal(.5, .045, .11, .62, -1.02, true) };
     // door cards with an armrest and window switches
     for (const sx of [-1, 1]) { add(box(.04, .5, 1.05), soft, sx * .86, .78, -.32); add(box(.08, .04, .4), leather, sx * .82, .78, -.2); add(box(.06, .012, .1), silver, sx * .815, .806, -.28); add(box(.02, .012, 1.0), silver, sx * .84, 1.0, -.32); }
+    // the cabin around you, at a Mazda 6's real size: the windscreen rakes from the dash (y .95) back to the roof (1.38 m),
+    // headliner over your head, A-pillars along the windscreen, B-pillars by your shoulder, window frames, rear window
+    const trimL = M(0x2a2c30, .95), lining = M(0xcfccc6, 1), pillarM = M(0x1b1d21, .9);
+    const beam = (a, b, w, d, mat) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), mm = new t.Mesh(box(w, d, L), mat); mm.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); mm.lookAt(new t.Vector3(...b).applyMatrix4(g.matrixWorld)); g.add(mm); mm.lookAt(b[0], b[1], b[2]); return mm; };
+    const WS0 = [.95, -.93], WS1 = [1.38, -.45];   // windscreen bottom and top (y, z)
+    for (const sx of [-1, 1]) {
+      beam([sx * .74, WS0[0], WS0[1]], [sx * .66, WS1[0], WS1[1]], .07, .09, pillarM);                       // A-pillar
+      beam([sx * .8, .98, .28], [sx * .7, 1.37, .3], .08, .12, pillarM);                                   // B-pillar
+      beam([sx * .68, 1.37, -.45], [sx * .68, 1.37, 1.35], .06, .05, trimL);                               // roof rail over the door
+      beam([sx * .84, .99, -.85], [sx * .84, .99, 1.5], .05, .03, trimL);                                  // window line (door top)
+      beam([sx * .66, 1.37, 1.35], [sx * .78, .99, 1.98], .14, .1, pillarM);                               // C-pillar
+      add(box(.2, .012, .16), lining, sx * .38, 1.355, -.33, .15, 0, 0);                                   // sun visor
+      add(box(.1, .02, .025), trimL, sx * .6, 1.35, .55);                                                   // grab handle
+    }
+    add(box(1.36, .03, 1.82), lining, 0, 1.39, .45);                                                        // headliner
+    beam([-.66, WS1[0], WS1[1]], [.66, WS1[0], WS1[1]], .1, .06, lining);                                // windscreen top edge
+    beam([-.66, 1.37, 1.35], [.66, 1.37, 1.35], .1, .06, lining);                                        // rear window top
+    beam([-.78, .99, 1.98], [.78, .99, 1.98], .08, .06, pillarM);                                        // rear window bottom
+    add(box(.06, .025, .04), trimL, .02, 1.36, -.42);                                                     // mirror mount
+    add(box(.12, .02, .06), M(0xdedad0, .6), 0, 1.375, .35);                                             // roof light
     // stalks either side of the column: indicators on the right (Japanese layout), wipers on the left
-    const stalk = side => { const s = new t.Group(); s.position.set(.37 + side * .07, .87, -.68); g.add(s); add(new t.CylinderGeometry(.008, .01, .14, 10), hard, side * .07, 0, 0, 0, 0, Math.PI / 2, s); add(new t.CylinderGeometry(.011, .011, .03, 12), silver, side * .135, 0, 0, 0, 0, Math.PI / 2, s); return s; };
+    const stalk = side => { const s = new t.Group(); s.position.set(.37 + side * .07, .83, -.68); g.add(s); add(new t.CylinderGeometry(.008, .01, .14, 10), hard, side * .07, 0, 0, 0, 0, Math.PI / 2, s); add(new t.CylinderGeometry(.011, .011, .03, 12), silver, side * .135, 0, 0, 0, 0, Math.PI / 2, s); return s; };
     const stalkR = stalk(1), stalkL = stalk(-1);
-    add(new t.CylinderGeometry(.045, .055, .18, 16), hard, .37, .85, -.7, Math.PI / 2 - .5, 0, 0);   // column shroud
+    add(new t.CylinderGeometry(.045, .055, .18, 16), hard, .37, .81, -.7, Math.PI / 2 - .5, 0, 0);   // column shroud
     return { cv, ctx: cv.getContext("2d"), tex, bg: faces(), lever, hb, pedals, stalkR, stalkL, n: { tach: 0, speedo: 0, fuel: 0, temp: 0 }, t: 0, drawT: -1, odo: 0 };
   }
 
@@ -2177,11 +2205,9 @@
     // dashboard: low, dark, slightly curved top edge
     const dash = new t.Mesh(new t.BoxGeometry(1.72, .26, .62), dashM); dash.position.set(0, .82, -1.0); g.add(dash);
     const top = new t.Mesh(new t.BoxGeometry(1.72, .035, .56), topM); top.position.set(0, .955, -.98); top.rotation.x = .08; g.add(top);
-        // A-pillars: thin, from the dash corners up and back to the roof
-    for (const sx of [-1, 1]) { const p = new t.Mesh(new t.BoxGeometry(.045, 1.0, .08), dashM); p.position.set(sx * .77, 1.43, -.74); p.rotation.x = .6; p.rotation.z = -sx * .06; g.add(p); }
-    const header = new t.Mesh(new t.BoxGeometry(1.5, .07, .16), dashM); header.position.set(0, 1.86, -.38); g.add(header);
+    // (pillars, roof and windows: the Mazda's cabin in mazda.js, at its real size)
     // steering wheel (rotates with the input)
-    const wheel = new t.Group(); wheel.position.set(.37, .9, -.6); wheel.rotation.x = -.5; g.add(wheel);
+    const wheel = new t.Group(); wheel.position.set(.37, .86, -.6); wheel.rotation.x = -.5; g.add(wheel);
     const rim = new t.Mesh(new t.TorusGeometry(.18, .027, 14, 56), new t.MeshStandardMaterial({ color: 0x111316, roughness: .75 })); wheel.add(rim);
     const hub = new t.Mesh(new t.CylinderGeometry(.055, .065, .05, 18), trimM); hub.rotation.x = Math.PI / 2; wheel.add(hub);
     for (const a of [0, Math.PI, -Math.PI / 2]) { const sp = new t.Mesh(new t.BoxGeometry(.13, .022, .018), trimM); sp.position.set(Math.cos(a) * .1, Math.sin(a) * .1, 0); sp.rotation.z = a; wheel.add(sp); }
@@ -2191,12 +2217,10 @@
     for (const sx of [-1, 1]) { const sb = new t.Mesh(new t.BoxGeometry(.5, .6, .12), seatM); sb.position.set(sx * .37, .95, .25); g.add(sb); const hr = new t.Mesh(new t.BoxGeometry(.26, .18, .1), seatM); hr.position.set(sx * .37, 1.36, .28); g.add(hr); }
     const bench = new t.Mesh(new t.BoxGeometry(1.4, .5, .1), seatM); bench.position.set(0, .9, 1.25); g.add(bench);
     const shelf = new t.Mesh(new t.BoxGeometry(1.45, .04, .5), dashM); shelf.position.set(0, 1.05, 1.75); g.add(shelf);
-    for (const sx of [-1, 1]) { const cp = new t.Mesh(new t.BoxGeometry(.12, .9, .3), dashM); cp.position.set(sx * .7, 1.45, 1.6); cp.rotation.x = -.5; g.add(cp); }
-    const roofBack = new t.Mesh(new t.BoxGeometry(1.4, .06, .2), dashM); roofBack.position.set(0, 1.85, 1.35); g.add(roofBack);
     const boot = new t.Mesh(P(MZ.boot, DIM.wid, .07), paint); g.add(boot);   // the back of your car, seen when you look round
     // mirrors: interior (top middle, to the driver's left), right door, left door
     const glass = [], mk = (w, h, tex, pos, rot) => { const fr = new t.Mesh(new t.BoxGeometry(w + .03, h + .03, .03), dashM); fr.position.copy(pos); fr.rotation.set(rot.x, rot.y, 0); g.add(fr); const m = new t.Mesh(new t.PlaneGeometry(w, h), new t.MeshBasicMaterial({ map: tex })); m.position.set(0, 0, .018); glass.push(m); fr.add(m); return fr; };   // the glass is hidden while the mirror cameras draw (not a layer: in a headset layers 1 and 2 belong to one eye each)
-    mk(.26, .075, mirrorTex.c, new t.Vector3(.04, 1.54, -.72), { x: .12, y: -.2 });
+    mk(.25, .07, mirrorTex.c, new t.Vector3(.02, 1.3, -.52), { x: .1, y: -.25 });
     mk(.16, .11, mirrorTex.r, new t.Vector3(.95, 1.1, -.86), { x: 0, y: -.45 });
     mk(.16, .11, mirrorTex.l, new t.Vector3(-.95, 1.1, -.86), { x: 0, y: .6 });
     // the inside of a 2012 Mazda 6: live dials, warning lights, gear lever, pedals, handbrake, stalks (mazda.js)
@@ -2311,7 +2335,7 @@
       this.mr = { c: rt(512, 160), r: rt(256, 180), l: rt(256, 180) };
       const flip = tx => { tx.wrapS = t.RepeatWrapping; tx.repeat.x = -1; return tx; };
       this.mcam = { c: new t.PerspectiveCamera(32, 512 / 160, .1, 220), r: new t.PerspectiveCamera(38, 256 / 180, .1, 160), l: new t.PerspectiveCamera(38, 256 / 180, .1, 160) };   // mirrors only need what's reasonably close behind
-      this.mcam.c.position.set(.02, 1.55, -.6); this.mcam.c.rotation.y = Math.PI;
+      this.mcam.c.position.set(.02, 1.32, -.46); this.mcam.c.rotation.y = Math.PI;
       this.mcam.r.position.set(.95, 1.1, -.86); this.mcam.r.rotation.y = Math.PI + .3;
       this.mcam.l.position.set(-.95, 1.1, -.86); this.mcam.l.rotation.y = Math.PI - .36;
       Object.values(this.mcam).forEach(c => this.rig.add(c));
@@ -2513,7 +2537,7 @@
       this.vrHead = VRx().presenting ? VRx().look(this) : null;
       if (this.vrHead) { c.look = this.vrHead.look || c.look; c.mirror = this.vrHead.mirror || c.mirror; c.lookBack = this.vrHead.back || c.lookBack; }
       // buttons
-      for (const p of c.presses) {
+      for (let p of c.presses) {   // let: B becomes "screen" in the headset
         if (p === "pause") { this.pause(); return; }
         if (p === "indL" || p === "indR") {
           const side = p === "indL" ? "L" : "R";
@@ -2522,6 +2546,7 @@
         }
         if (p === "handbrake") car.handbrake = !car.handbrake; if (p === "ignition") car.start(c.clutch);
         if (p === "lights") { car.lights = !car.lights; this.sound.tick(true); } if (p === "wipers") { car.wipers = !car.wipers; this.sound.tick(true); }
+        if (p === "pip" && VRx().presenting) p = "screen";   // no bird's-eye box in the headset: B switches the centre screen instead
         if (p === "pip") { this.view = ((this.view || 0) + 1) % 3; this.pipOn = this.view === 0; }   // bird's-eye corner -> full-screen top-down -> off
         if (p === "footprint") this._ctx.data.fpOn = !this._ctx.data.fpOn;
         if (p === "screen") { const o = I.opts, n = SCR_MODES[(SCR_MODES.indexOf(o.dashScreen || "auto") + 1) % SCR_MODES.length]; o.dashScreen = n; I.saveOpts(); this.flash("Dash screen: " + SCR_NAME[n] + (n === "auto" ? " (camera in reverse, 360° when slow, map when driving)" : ""), "info"); }
@@ -2868,8 +2893,8 @@
     pause() {
       if (this.ended) return; this.paused = true; this.sound.engine(0, 0, false);
       this.over.hidden = false;
-      this.over.innerHTML = `<div class="sim-card"><h2>Paused</h2>${this.controlsHelp(true)}<div class="sim-row"><button class="sim-btn primary" data-sim="resume">Carry on</button>${this.canTravel() ? `<button class="sim-btn" data-sim="travel">Fast travel</button>` : ""}${this.scn.freeDrive ? `<button class="sim-btn" data-sim="endmark">End drive: see my marks</button>` : ""}${this.mock ? "" : `<button class="sim-btn" data-sim="restart">Restart</button>`}<button class="sim-btn" data-sim="quit">${this.mock ? (this.mock.kind === "mock" ? "Leave the mock" : "Leave the run") : "Leave"}</button></div></div>`;
-      this.over.onclick = e => { const b = e.target.closest("[data-sim]"); if (!b) return; const a = b.dataset.sim; if (a === "resume") { this.over.hidden = true; this.paused = false; this.last = performance.now(); } else if (a === "endmark") { this.paused = false; this.finish("done"); } else if (a === "restart") this.restart(); else if (a === "travel") this.fastTravel(); else this.close(); };
+      this.over.innerHTML = `<div class="sim-card"><h2>Paused</h2>${this.controlsHelp(true)}<div class="sim-row"><button class="sim-btn primary" data-sim="resume">Carry on</button>${VRx().presenting ? `<button class="sim-btn" data-sim="recentre">Recentre my seat</button>` : ""}${this.canTravel() ? `<button class="sim-btn" data-sim="travel">Fast travel</button>` : ""}${this.scn.freeDrive ? `<button class="sim-btn" data-sim="endmark">End drive: see my marks</button>` : ""}${this.mock ? "" : `<button class="sim-btn" data-sim="restart">Restart</button>`}<button class="sim-btn" data-sim="quit">${this.mock ? (this.mock.kind === "mock" ? "Leave the mock" : "Leave the run") : "Leave"}</button></div></div>`;
+      this.over.onclick = e => { const b = e.target.closest("[data-sim]"); if (!b) return; const a = b.dataset.sim; if (a === "resume") { this.over.hidden = true; this.paused = false; this.last = performance.now(); } else if (a === "endmark") { this.paused = false; this.finish("done"); } else if (a === "restart") this.restart(); else if (a === "travel") this.fastTravel(); else if (a === "recentre") { VRx().recenter(); this.flash("Seat recentred.", "info"); } else this.close(); };
     }
     finish(why) {
       if (this.ended) return; this.ended = true; if (!VRx().page) VRx().exit(); this.sound.engine(0, 0, false); this.sound.horn(false);
@@ -4063,16 +4088,16 @@
       { name: "Get ready", say: "Get ready: clutch down, reverse gear (R), then look all round: both shoulders and out the back (hold V, then Z and C).",
         coach: (ctx) => ctx.car.gear !== -1 ? "Reverse gear first (R), clutch down." : "Now look all round: hold V to look out the back.",
         done: ctx => ctx.car.gear === -1 && ctx.lookedBack(6) },
-      { name: "Back to the turn point", say: "Reverse slowly in a straight line. Watch the yellow post on your left: when it's level with your shoulder, I'll say turn.",
+      { name: "Back to the turn point", say: "Reverse slowly in a straight line. Reference point: the second white line before your bay, level with your left shoulder (the yellow post marks it here). I'll say turn.",
         coach: (ctx, d) => { const car = ctx.car, left = car.x - (d.bx + TP_BAY); if (Math.abs(lock(car)) > .15) return "Keep the wheel straight for now."; if (left < -.9) return "You've gone past the turn point. Stop, drive forward a metre and come back slowly."; if (left < 1.2) return "Nearly there… get ready to turn left."; return null; },
         done: (ctx, d) => ctx.car.gear === -1 && ctx.car.x <= d.bx + TP_BAY + .05 && ctx.car.x > d.bx + TP_BAY - .9 },
-      { name: "Full left lock", say: "FULL LEFT LOCK NOW: turn the wheel all the way left and keep creeping back. Watch both mirrors.",
+      { name: "Full left lock", say: "FULL LEFT LOCK NOW: all the way left, keep creeping back. Watch your left mirror: the bay line comes into it, then both lines.",
         coach: ctx => lock(ctx.car) > -.85 ? "More left: all the way round until the wheel stops." : !ctx.lookedBack(5) && !ctx.mirrored(3) ? "Keep looking: out the back and both mirrors." : null,
         done: ctx => ctx.car.yaw >= Math.PI - .1 },
-      { name: "Straighten", say: "STRAIGHTEN THE WHEEL NOW: the bay lines are parallel in both mirrors. Keep reversing slowly.",
+      { name: "Straighten", say: "STRAIGHTEN NOW. Reference point: the bay lines run parallel with your car in BOTH mirrors. Keep reversing slowly.",
         coach: (ctx, d) => { const car = ctx.car, p = MAN().pose(car, d.tgt), dg = MAN().diagnose(p, "bay"); if (Math.abs(lock(car)) > .3 && Math.abs(p.angDeg) < 4) return "Wheel back to the middle."; if (dg.key === "angle") return dg.what + " " + dg.rev; return null; },
         done: (ctx, d) => MAN().pose(ctx.car, d.tgt).along <= .15 },
-      { name: "Stop and secure", say: "STOP. Handbrake on (B), then neutral (N).", enter: ctx => ctx.stopSign(true),
+      { name: "Stop and secure", say: "STOP. Reference point: the end of the bay line is level with your door mirror, so your front is inside the bay. Handbrake on (B), then neutral (N).", enter: ctx => ctx.stopSign(true),
         done: ctx => ctx.car.mph < .2 && (ctx.car.handbrake || ctx.car.gear === 0) }
     ],
     finish(ctx, d) {
@@ -4113,19 +4138,19 @@
       { name: "Get ready", say: "Get ready: clutch down, reverse gear (R), then look all round: both shoulders and out the back (hold V, then Z and C).",
         coach: ctx => ctx.car.gear !== -1 ? "Reverse gear first (R), clutch down." : "Now look all round: hold V to look out the back.",
         done: ctx => ctx.car.gear === -1 && ctx.lookedBack(6) },
-      { name: "Back to the turn point", say: "Reverse slowly in a straight line. When the yellow post on the kerb is level with your shoulder, I'll say turn.",
+      { name: "Back to the turn point", say: "Reverse slowly in a straight line, about a door's width from the parked car. Reference point: its back bumper appears in your rear side window, level with your rear wheel (the yellow post marks it). I'll say turn.",
         coach: ctx => { const car = ctx.car, left = TP_PAR - car.z; if (Math.abs(lock(car)) > .15) return "Keep the wheel straight for now."; if (left < -.9) return "You've gone past the turn point. Stop, drive forward a metre and come back slowly."; if (left < 1.2) return "Nearly there… get ready to turn left."; return null; },
         done: ctx => ctx.car.gear === -1 && ctx.car.z >= TP_PAR - .05 && ctx.car.z < TP_PAR + .9 },
-      { name: "Full left lock", say: "FULL LEFT LOCK NOW: all the way left, keep creeping back. Look out the back and in the left mirror.",
+      { name: "Full left lock", say: "FULL LEFT LOCK NOW: all the way left, keep creeping back. Look out the back, then in the left mirror.",
         coach: ctx => lock(ctx.car) > -.85 ? "More left: all the way round until the wheel stops." : null,
         done: ctx => ctx.car.yaw >= .72 },
-      { name: "Straighten", say: "STRAIGHTEN NOW: you're at about 45°. Reverse straight back a little.", enter: (ctx, d) => { d.z3 = ctx.car.z; },
+      { name: "Straighten", say: "STRAIGHTEN NOW. Reference point, about 45°: the car behind you sits in the middle of your left mirror, or the kerb disappears from its bottom corner. Reverse straight back a little.", enter: (ctx, d) => { d.z3 = ctx.car.z; },
         coach: ctx => Math.abs(lock(ctx.car)) > .2 ? "Wheel back to the middle." : null,
         done: (ctx, d) => ctx.car.z - d.z3 >= .6 },
-      { name: "Full right lock", say: "FULL RIGHT LOCK NOW to swing the front in. Keep creeping back and watch the front corner.",
+      { name: "Full right lock", say: "FULL RIGHT LOCK NOW. Reference point: your front left corner has passed the other car's back bumper (look out of your left window). Keep creeping back.",
         coach: ctx => lock(ctx.car) < .85 ? "More right: all the way round." : null,
         done: ctx => ctx.car.yaw <= .03 },
-      { name: "Stop and secure", say: "STRAIGHTEN AND STOP. Handbrake on (B), then neutral (N).", enter: ctx => ctx.stopSign(true),
+      { name: "Stop and secure", say: "STRAIGHTEN AND STOP when the kerb runs parallel in your left mirror, about 30 cm from it. Handbrake on (B), then neutral (N).", enter: ctx => ctx.stopSign(true),
         done: ctx => ctx.car.mph < .2 && (ctx.car.handbrake || ctx.car.gear === 0) }
     ],
     finish(ctx, d) {
@@ -4159,13 +4184,13 @@
       { name: "Get ready", say: "Get ready: clutch down, first gear, then check your mirrors (X) and look over your right shoulder (hold C).",
         coach: ctx => ctx.car.gear !== 1 ? "First gear, clutch down." : "Mirrors, then your right shoulder.",
         done: ctx => ctx.car.gear === 1 && ctx.mirrored(8) },
-      { name: "Along the aisle", say: "Creep along the right-hand side of the aisle. When the yellow post is level with your shoulder, I'll say turn.",
+      { name: "Along the aisle", say: "Creep along the right-hand side of the aisle. Reference point: your door mirror level with the first line of the bay next to yours (the yellow post marks it). I'll say turn.",
         coach: (ctx, d) => { const car = ctx.car, left = d.bx - TP_FWD - car.x; if (car.z < 1.1) return "Keep further right in the aisle: it gives you room to swing in."; if (left < -.9) return "You've gone past the turn point. Stop, reverse back a metre and try again."; if (left < 1.2) return "Nearly there… get ready to turn left."; return null; },
         done: (ctx, d) => ctx.car.gear > 0 && ctx.car.x >= d.bx - TP_FWD - .05 && ctx.car.x < d.bx - TP_FWD + .9 },
       { name: "Full left lock", say: "FULL LEFT LOCK NOW and keep creeping forward. Watch your left front corner and the car beside the bay.",
         coach: ctx => lock(ctx.car) > -.85 ? "More left: all the way round until the wheel stops." : null,
         done: ctx => ctx.car.yaw <= .25 },
-      { name: "Straighten in", say: "STRAIGHTEN UP as the lines run alongside your doors. Creep in and stop when your front is near the end of the bay.",
+      { name: "Straighten in", say: "STRAIGHTEN UP as the bay lines run alongside your doors. Creep in and stop when the end of the bay line is level with your door mirror.",
         coach: (ctx, d) => { const p = MAN().pose(ctx.car, d.tgt), dg = MAN().diagnose(p, "bay"); return dg.key === "angle" ? dg.what + " " + dg.fwd : null; },
         done: (ctx, d) => MAN().pose(ctx.car, d.tgt).along >= -.1 },
       { name: "Stop", say: "STOP. Handbrake on (B), then neutral (N).", enter: ctx => ctx.stopSign(true),
@@ -4205,7 +4230,7 @@
       { name: "Mirrors and signal", say: "Pull up on the right when it's safe. First: check your mirrors (X), then signal right (E).",
         coach: ctx => !ctx.mirrored(8) ? "Mirrors first (X)." : "Now signal right (E).",
         done: ctx => ctx.car.ind === "R" && ctx.mirrored(10) },
-      { name: "Cross and stop", say: "Slow down and wait for a big enough gap in the oncoming traffic. When it's clear, cross over and stop close to the right kerb, about 30 cm, straight.",
+      { name: "Cross and stop", say: "Slow down and wait for a big enough gap in the oncoming traffic. When it's clear, cross over and stop close to the right kerb, about 30 cm, straight. Reference point: the kerb runs into the bottom corner of your right mirror.",
         coach: ctx => { const car = ctx.car; if (oncoming(ctx) && car.x > -1.2 && car.x < 1.5 && car.mph > 1) return "Wait: a car's coming towards you. Let it pass first."; if (car.x > 1.2 && car.mph < .2 && rightGap(car) > .6) return "Further out than ideal. Creep forward with a touch of right, then straighten."; return null; },
         done: (ctx, d, dt) => { const car = ctx.car; d.still = car.x > 1.2 && car.mph < .2 ? (d.still || 0) + dt : 0; return d.still > 1.2 && rightGap(car) <= .6; },
         after: (ctx, d) => { d.gap1 = rightGap(ctx.car); } },
@@ -4256,6 +4281,70 @@
   });
 
   (window.SimScenarios = window.SimScenarios || []).push(bayRev, parallel, bayFwd, pullRight, estop);
+})();
+
+// ═══════════════ STOP AT THE KERB: the reference point for pulling up 30 cm out ═══════════════
+// Down a street, pull up at each yellow post. A yellow mark on the bonnet shows where the kerb line meets the bonnet
+// when you're 30 cm out (worked out from where your eyes are, so it's right in the headset too). Line the kerb up
+// with it as you stop. The mark fades over the stops; each one is measured.
+(function () {
+  const W = () => window.SimWorld, T = () => window.THREE;
+  const POSTS = [96, 52, 8, -36, -80, -124];
+  const kerbDrill = {
+    id: "man-kerb", group: "Parking", limit: 15, maxMinors: 99, practiceOnly: true, title: "Stop at the kerb (reference point)",
+    brief: "Pull up on the left at each yellow post, about 30 cm from the kerb and straight. The yellow mark on your bonnet shows where the kerb should meet the bonnet when you're 30 cm out: line the kerb up with it as you stop. It fades after a few stops so you learn the spot.",
+    start: "Drive on and pull up on the left at the first yellow post, about 30 cm from the kerb.",
+    tips: ["The reference point: as you stop, the kerb should run into the middle of your bonnet (in this car, just right of the centre). Kerb further LEFT on the bonnet = you're too far out. Further right = too close.", "Mirrors, signal left, then ease in gently with small steering, early. Don't swerve in at the end.", "Straighten before you stop: the kerb should run parallel in your left mirror."],
+    map: S => W().buildStreet(S, { zebra: false }),
+    setup(ctx) {
+      ctx.placeCar(-1.75, 140, 0, { gear: 2, speed: 5 });
+      const t = T(), d = ctx.data, m = new t.MeshStandardMaterial({ color: 0xffc400, emissive: 0xffa000, emissiveIntensity: .35 });
+      for (const z of POSTS) { const g = new t.Group(); const p = new t.Mesh(new t.CylinderGeometry(.06, .06, 1.1, 10), m); p.position.y = .55; g.add(p); const b = new t.Mesh(new t.SphereGeometry(.13, 14, 10), m); b.position.y = 1.15; g.add(b); g.position.set(-4.4, 0, z); ctx.scene.add(g); }
+      // the bonnet mark rides with your car (rig): a short stripe along the bonnet top
+      const S = window.Sim.current, mark = new t.Mesh(new t.BoxGeometry(.03, .006, .5), new t.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: .9, depthTest: false }));   // drawn over the dial housing: the kerb line meets the bonnet just above it
+      mark.position.set(.14, .805, -2.05); mark.rotation.x = -.16; mark.renderOrder = 30; S.rig.add(mark); d.mark = mark;
+      d.i = 0; d.stops = []; d.still = 0;
+    },
+    hud(ctx) { const d = ctx.data, g = window.Sim.current.kerbGap(1); return [["Post", d.i < POSTS.length ? `${d.i + 1} of ${POSTS.length}` : "done"], ["Kerb (left)", g === null ? "–" : Math.round(g * 100) + " cm"], ["Help", d.i < 2 ? "mark on" : d.i < 4 ? "mark fading" : "mark off"]]; },
+    tick(ctx, dt) {
+      const d = ctx.data, car = ctx.car, S = window.Sim.current;
+      // where the 30 cm line meets the bonnet, seen from your eyes now
+      const t = T(), eye = S.rig.worldToLocal(new t.Vector3().setFromMatrixPosition((window.SimVR && window.SimVR.presenting ? S.renderer.xr.getCamera() : S.cam).matrixWorld));
+      const kx = -(window.SimCar.DIM.half + .3), zM = -2.05, far = -15, x = eye.x + (kx - eye.x) * ((zM - eye.z) / (far - eye.z));
+      d.mark.position.x = x; d.mark.material.opacity = d.i < 2 ? .9 : d.i < 4 ? .9 * (1 - (d.i - 1) / 3) : 0; d.mark.visible = d.mark.material.opacity > .02;
+      if (d.i >= POSTS.length) { if (ctx.t > d.endAt) ctx.finish("done"); return; }
+      const z = POSTS[d.i], ahead = car.z - z;   // the car drives towards -z
+      if (ahead > 40) ctx.hint("kp" + d.i, d.i === 0 ? "Mirrors, signal left, and ease in towards the kerb as you slow down." : "Drive on to the next yellow post and pull up again.", 6);
+      d.still = car.mph < .3 ? d.still + dt : 0;
+      if (d.still > 1 && Math.abs(ahead) < 10) {
+        const g = S.kerbGap(1), ang = Math.abs(((car.yaw + Math.PI) % (2 * Math.PI)) - Math.PI) * 180 / Math.PI, cmv = g === null ? null : Math.round(g * 100);
+        const verdict = cmv === null ? "no kerb found" : cmv <= 0 ? "touching the kerb" : cmv < 15 ? `${cmv} cm: a bit close` : cmv <= 45 ? `${cmv} cm: good` : `${cmv} cm: too far out`;
+        d.stops.push({ cm: cmv, ang }); ctx.flash(`Post ${d.i + 1}: ${verdict}${ang > 4 ? `, and ${Math.round(ang)}° off straight` : ""}.` + (cmv > 45 ? " Next time, keep easing in until the kerb meets the mark on your bonnet." : ""), cmv !== null && cmv > 0 && cmv <= 45 && ang <= 4 ? "info" : "warn");
+        d.i++; d.still = 0; if (d.i >= POSTS.length) d.endAt = ctx.t + 3; else ctx.say("Good. Move off safely and pull up at the next yellow post.", { big: true });
+      }
+    },
+    report(ctx) { const st = ctx.data.stops; if (!st.length) return ""; const good = st.filter(x => x.cm !== null && x.cm > 0 && x.cm <= 45).length; return `<h3>How it went</h3><p>${good} of ${st.length} stops were 1 to 45 cm from the kerb.</p><p>${st.map((x, i) => `Post ${i + 1}: ${x.cm === null ? "–" : x.cm + " cm"}${x.ang > 4 ? ` (${Math.round(x.ang)}°)` : ""}`).join(" · ")}</p><p class="sim-sub">Aim for about 30 cm: the kerb meeting the middle of your bonnet as you stop.</p>`; }
+  };
+  (window.SimScenarios = window.SimScenarios || []).push(kerbDrill);
+  window.addEventListener("load", () => { const L = window.SimScenarios; if (L && !L.includes(kerbDrill)) L.push(kerbDrill); });
+})();
+
+// ═══════════════ PARKING: every parking drill in one place, in the order you'd learn them ═══════════════
+// see where the car's corners go → stop at the kerb → let the teacher talk you through each one → do them yourself →
+// fix one that went wrong → the real test centre → the free practice yard
+(function () {
+  const ORDER = ["man-footprint", "man-kerb", "teach-bay-rev", "teach-bay-fwd", "teach-parallel", "teach-right", "man-bay-rev", "man-bay-fwd", "man-parallel", "man-right",
+    "fix-bay-crooked", "fix-far", "fix-angle-out", "fix-angle-in", "fix-reverse-line", "centre-bay", "yard"];
+  function parking() {
+    const L = window.SimScenarios; if (!L) return;
+    const picked = ORDER.map(id => L.find(s => s.id === id)).filter(Boolean); if (!picked.length) return;
+    picked.forEach(s => { s.group = "Parking"; });
+    const rest = L.filter(s => !picked.includes(s)); L.length = 0; L.push(...picked, ...rest);
+    const G = window.SimGroups = window.SimGroups || []; const i = G.indexOf("Parking"); if (i >= 0) G.splice(i, 1);
+    G.unshift("Parking"); for (const g of ["Fix it"]) { const k = G.indexOf(g); if (k >= 0 && !L.some(s => s.group === g)) G.splice(k, 1); }
+  }
+  window.addEventListener("load", parking);
+  window.SimParking = parking;
 })();
 
 </script>
@@ -7829,8 +7918,7 @@
         ${[["autoClutchKeys", "Keyboard clutch assist", "With the keyboard, the clutch eases out for you when moving off and goes down when you stop. Turn off to work the clutch yourself with Space."],
         ["sound", "Sound", "Engine, indicator ticks and the horn."],
         ["voice", "Spoken instructions", "The examiner reads instructions out loud."],
-        ["voiceHints", "Spoken coaching", "In practice, the coach's hints are read out too, so you can keep your eyes on the road (wheel or headset)."],
-        ["vrPassthrough", "Quest: see your real wheel", "In the headset, a window shows your own hands on your G920 and gear stick (passthrough). Hands on the wheel at quarter to three when it starts, to line it up. Off: virtual hands on a virtual wheel."]].map(([k, n, d]) => `<label style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer"><input type="checkbox" data-opt="${k}" ${o[k] ? "checked" : ""} style="width:20px;height:20px;margin-top:2px"><span><b>${n}</b><br><span class="sub">${d}</span></span></label>`).join("")}
+        ["voiceHints", "Spoken coaching", "In practice, the coach's hints are read out too, so you can keep your eyes on the road (wheel or headset)."]].map(([k, n, d]) => `<label style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer"><input type="checkbox" data-opt="${k}" ${o[k] ? "checked" : ""} style="width:20px;height:20px;margin-top:2px"><span><b>${n}</b><br><span class="sub">${d}</span></span></label>`).join("")}
         <div style="padding:12px 0;border-bottom:1px solid var(--line)"><b>Satellite ground (real-roads drives)</b>
           <p class="sub" style="margin:4px 0 8px">Paste your Mapbox access token (it starts <code>pk.</code>). Aerial photos then show under the Chadderton / Oldham / Ashton roads. Kept in this browser only. Leave empty for the plain look.</p>
           <div class="row" style="gap:8px;flex-wrap:nowrap"><input id="mbkey" type="password" autocomplete="off" spellcheck="false" placeholder="pk.…" value="${esc(o.mapboxToken || "")}" style="flex:1;min-width:0"><button class="btn small" data-d="mbsave">Save</button>${o.mapboxToken ? `<button class="btn ghost small" data-d="mbclear">Remove</button>` : ""}</div>
