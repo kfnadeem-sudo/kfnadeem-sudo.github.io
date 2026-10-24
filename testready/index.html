@@ -1313,20 +1313,22 @@
     eye(sim) { const t = T(); return sim.rig.worldToLocal(new t.Vector3().setFromMatrixPosition(sim.renderer.xr.getCamera().matrixWorld)); },
     tick(sim) {
       if (H.phase === "off" || !H.xrHands) return;
-      const hands = H.read(sim), dt = Math.max(.001, sim.t - (H.lastT ?? sim.t)); H.lastT = sim.t;
+      const now = performance.now() / 1000, hands = H.read(sim), dt = Math.min(.1, Math.max(.001, now - (H.lastNow ?? now))); H.lastNow = now;   // real time: the drive is paused during setup
       const speed = s => { const a = hands[s], b = H.prev[s]; return a && b ? a.palm.distanceTo(b) / dt : 9; };
       if (H.phase === "wheel") {
-        const L = hands.left, Rh = hands.right, d = L && Rh ? L.palm.distanceTo(Rh.palm) : 0, still = speed("left") < .06 && speed("right") < .06;
-        H.seen = L || Rh ? sim.t : (H.seen ?? sim.t);
+        const L = hands.left, Rh = hands.right, d = L && Rh ? L.palm.distanceTo(Rh.palm) : 0;
+        const A = H.anchor, still = !!(L && Rh && A && L.palm.distanceTo(A.l) < .03 && Rh.palm.distanceTo(A.r) < .03);
+        if (L && Rh && !still) H.anchor = { l: L.palm.clone(), r: Rh.palm.clone() };   // settle here, then count
+        H.seen = L || Rh ? now : (H.seen ?? now);
         let msg;
-        if (!L && !Rh) msg = sim.t - H.seen > 5 ? "I can't see your hands. Put the controllers down (the Quest switches to hands by itself). Still nothing? Quest settings → Movement tracking → Hand tracking on." : "Looking for your hands…";
+        if (!L && !Rh) msg = now - H.seen > 5 ? "I can't see your hands. Put the controllers down (the Quest switches to hands by itself). Still nothing? Quest settings → Movement tracking → Hand tracking on." : "Looking for your hands…";
         else if (!L || !Rh) msg = (L ? "Left hand ✓" : "Right hand ✓") + " · now the other hand on the wheel too";
         else {
           const e = H.eye(sim), c = L.palm.clone().add(Rh.palm).multiplyScalar(.5), fwd = e.z - c.z, down = e.y - c.y, side = c.x - e.x;
           // a wheel is in front of you, a bit below your eyes, roughly straight ahead, about 30-50 cm across
           const why = d < .22 ? "Hands a bit further apart: quarter to three, on the rim." : d > .5 ? "Hands closer together: both on the rim of the wheel." : fwd < .2 ? "Reach forward to the wheel." : fwd > .9 ? "Lean back in your seat: the wheel should be in front of you." : down < .02 ? "Hands lower: on the wheel, not above it." : down > .65 ? "Hands higher: on the wheel." : Math.abs(side) > .3 ? "Sit square to the wheel: it looks off to one side. Look straight ahead and press A to recentre your seat." : null;
           if (why) { H.still = 0; msg = why; }
-          else { H.still = still ? H.still + dt : 0; msg = still ? `Left ✓ Right ✓ · hold still… ${Math.max(1, Math.ceil(1.5 - H.still))}` : "Left ✓ Right ✓ · now keep still"; }
+          else { H.still = still ? H.still + dt : 0; msg = H.still > .05 ? `Left ✓ Right ✓ · hold it there… ${Math.max(1, Math.ceil(1.5 - H.still))}` : "Left ✓ Right ✓ · rest your hands on the wheel"; }
           if (H.still > 1.5) {
             const n = e.clone().sub(c).normalize();
             H.cal = Object.assign(H.cal || {}, { c: c.toArray(), n: n.toArray(), r: Math.max(.12, Math.min(.2, d / 2 - .015)) }); H.save(); H.apply();
@@ -1336,7 +1338,8 @@
         if (msg) VR.setup.status(msg);
       } else if (H.phase === "shifter") {
         const c = new (T().Vector3)().fromArray(H.cal.c), cand = ["left", "right"].map(s => hands[s] && hands[s].tip && hands[s].tip.distanceTo(c) > H.cal.r + .14 && hands[s].tip.x < c.x ? s : null).find(Boolean);
-        if (cand && speed(cand) < .06) H.still += dt; else H.still = 0;
+        const tip = cand && hands[cand].tip, near = tip && H.tipAnchor && tip.distanceTo(H.tipAnchor) < .03;
+        if (near) H.still += dt; else { H.still = 0; H.tipAnchor = tip ? tip.clone() : null; }
         VR.setup.status(!hands.left && !hands.right ? "Looking for your hands…" : cand ? `Got it · hold still… ${Math.max(1, Math.ceil(1.2 - H.still))}` : "Touch the top of the gear knob (to the left of the wheel)");
         if (H.still > 1.2) { const tip = hands[cand].tip; H.cal.s = tip.toArray(); H.cal.sn = H.eye(sim).sub(tip).normalize().toArray(); H.save(); H.apply(); H.still = 0; VR.setup.go("done"); }
       } else if (H.phase === "drive") H.drive(sim, hands, dt);
@@ -1549,7 +1552,7 @@
       const S = VR.setup, sim = S.sim, H = VR.hands; S.step = step; if (!sim) return;
       const ar = !!VR.ar, n = { intro: 0, seat: 1, wheel: 2, check: 2, shifter: 3, done: 0 }[step];
       const card = (title, text, btns, up) => { sim.over.hidden = false; sim.over.innerHTML = `<div class="sim-card${up ? " vr-up" : ""}"><div class="sim-kicker">Seat and wheel setup${n ? " · step " + n + " of 3" : ""}</div><h2>${title}</h2><p>${text}</p><p id="vsStatus"></p><div class="sim-row">${btns.map(([k, l], i) => `<button class="sim-btn${i ? "" : " primary"}" data-vs="${k}">${l}</button>`).join("")}</div></div>`; if (VR.card) VR.card.sig = ""; };
-      H.phase = step === "wheel" ? "wheel" : step === "shifter" ? "shifter" : "pause"; H.still = 0; H.seen = undefined;
+      H.phase = step === "wheel" ? "wheel" : step === "shifter" ? "shifter" : "pause"; H.still = 0; H.seen = undefined; H.anchor = null; H.tipAnchor = null;
       if (step === "intro") card("Set up your seat and wheel", "About 30 seconds, once. 1: sit how you drive. 2: put your hands on your wheel so the car's wheel lines up with your real one. 3: touch your gear stick.", [["seat", "Start"], ["skip", "Skip: standard position"]]);
       else if (step === "seat") card("Sit how you drive", "Back against the seat, look straight ahead. Then press A on the wheel (or point at the button and pinch).", [["seatok", "Done, I'm sitting right"], ["intro", "Back"]]);
       else if (step === "wheel") card("Hands on your wheel", "Put the controllers down. Both hands on the rim at quarter to three (9 and 3 on a clock), and keep still for a second.", [["seatagain", "Recentre my seat"], ["intro", "Start again"], ["skip", "Skip: standard position"]], true);   // A first: harmless, your hands are on the wheel
