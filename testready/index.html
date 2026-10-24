@@ -2572,13 +2572,14 @@
       R.shadowMap.needsUpdate = true;   // shadows once per frame, shared by the mirrors and the main view
       this.fc = (this.fc || 0) + 1;
       // mirrors are plain cameras: switch the headset off for them, then back on for your view
-      const xrWas = R.xr.enabled; R.xr.enabled = false;
+      // (in the headset the frame is drawn into the headset's own target: put that back afterwards, not the screen)
+      const xrWas = R.xr.enabled, rtWas = R.getRenderTarget(); R.xr.enabled = false;
       // in the headset, a quality guard keeps frames smooth: mirrors refresh less often, then the view shortens
       const q = inVR ? this.vrQuality() : 0, every = [1, 3, 5, 8][q];
       for (const k of ["c", "r", "l"]) { if (k !== "c" && (this.fc + (k === "r" ? 0 : 1)) % 2) continue; if (every > 1 && (this.fc + (k === "c" ? 0 : k === "r" ? 1 : 2)) % every) continue; R.setRenderTarget(this.mr[k]); R.render(this.scene, this.mcam[k]); }
       this.drawDash(R, every);
       R.xr.enabled = xrWas;
-      R.setRenderTarget(null);
+      R.setRenderTarget(rtWas);
       if (this.door && car.mph > 2) this.door = null;   // moving off shuts it
       if (this.door && !inVR) {   // head out of the open door, looking down at the wheel and the kerb
         const s = this.door === "L" ? 1 : -1, d = car.dir, l = { x: d.z, z: -d.x }, sb = this.body;   // your own car's outside (rides on the rig)
