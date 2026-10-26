@@ -14,6 +14,21 @@
 // links     href can be a CONFIG key (e.g. "etsy") or a full URL
 export const PROJECTS = [
   {
+    id: "job-system",
+    machine: "job-system",
+    name: "Job System",
+    line: "Replaced a construction firm's ERP with a system the whole team uses every day.",
+    machineLabel: "job-card sorting machine",
+    fit: 1.3,
+    outcome: "Live since September 2026 · whole team, office to site · ERP subscription cancelled",
+    tech: ["Next.js", "TypeScript", "SQLite", "Android", "MCP", "Playwright"],
+    credits: "Specified, tested and rolled out by me; built with Claude",
+    links: [],
+    still: "assembled-light.png",
+    exploded: "exploded-light.png",
+    explodeAngle: 150,
+  },
+  {
     id: "dissPICable",
     machine: "roast-o-matic",
     aspect: 720 / 760,
@@ -28,21 +43,6 @@ export const PROJECTS = [
     exploded: "light-exploded.png",
     extras: [{ label: "Play a round", call: "play" }],
     explodeAngle: -8, // the machine turns here when it comes apart, so every part is in view
-  },
-  {
-    id: "job-system",
-    machine: "job-system",
-    name: "Job System",
-    line: "Replaced a construction firm's ERP with a system the whole team uses every day.",
-    machineLabel: "job-card sorting machine",
-    fit: 1.3,
-    outcome: "Live since September 2026 · whole team, office to site · ERP subscription cancelled",
-    tech: ["Next.js", "TypeScript", "SQLite", "Android", "MCP", "Playwright"],
-    credits: "Specified, tested and rolled out by me; built with Claude",
-    links: [],
-    still: "assembled-light.png",
-    exploded: "exploded-light.png",
-    explodeAngle: 150,
   },
   {
     id: "kn-layerworks",
