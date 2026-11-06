@@ -1,152 +1,909 @@
 <!doctype html>
-<html lang="en-GB">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kaif Nadeem: apps, games and AI tools</title>
-<meta name="description" content="Kaif Nadeem builds AI automations and business systems. Replaced a construction firm's ERP with a job system now used by the whole team. Four hackathon awards. Built with Claude.">
-<meta name="theme-color" content="#071a33">
-<meta name="color-scheme" content="dark">
-<!-- Open Graph / social preview. Swap SITE_URL for the live address once it exists (see README). -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kaif Nadeem</title>
+<meta name="description" content="Kaif Nadeem builds AI automation and business systems. Scroll through the work.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Kaif Nadeem: AI automation and business systems">
-<meta property="og:description" content="Built for how a business really runs. Every project is an interactive machine you can turn and take apart.">
-<meta property="og:image" content="https://kfnadeem-sudo.github.io/img/og.png?v=2">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:image" content="https://kfnadeem-sudo.github.io/img/og.png?v=2">
+<meta property="og:description" content="Kaif Nadeem builds AI automation and business systems. Scroll through the work.">
 <meta property="og:url" content="https://kfnadeem-sudo.github.io/">
+<meta property="og:image" content="https://kfnadeem-sudo.github.io/img/og.png?v=2">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/site.css">
-<script>
-  // first visit in this tab, with motion allowed: play the intro once
-  try {
-    if (!sessionStorage.getItem("kn-intro") && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("intro");
-  } catch (e) {}
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Portfolio v4 sample: each project floods the page in its own colour. 2D SVG scenes on scroll: transform/opacity only, no filters, no WebGL. */
+:root {
+  --ink: #171a33; --ink-2: #22264a; --cream: #fbf6d9; --cream-2: #c9c8c4;
+  --world: var(--ink); --on: var(--cream); --on-2: var(--cream-2); --hot: #ffc93c;
+  --display: "Bricolage Grotesque", system-ui, sans-serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --spring: cubic-bezier(.22, 1, .36, 1); --ease: cubic-bezier(.4, 0, .2, 1);
+  --gutter: clamp(16px, 4vw, 56px);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--ink); }
+html.lenis { height: auto; } .lenis.lenis-smooth { scroll-behavior: auto; }
+body { margin: 0; color: var(--cream); font: 400 17px/1.55 var(--body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; } button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--hot); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
+
+.head { position: fixed; inset: 0 0 auto; height: 60px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 var(--gutter); font-weight: 500; font-size: 15px; pointer-events: none; }
+.head > * { pointer-events: auto; }
+.head a, .head button { text-decoration: none; background: none; border: 0; cursor: pointer; padding: 6px 2px; opacity: .75; }
+.head a:hover, .head button:hover { opacity: 1; }
+.head .me { font-family: var(--display); font-weight: 700; font-size: 18px; opacity: 1; }
+.head nav { display: flex; gap: 20px; }
+
+/* hero: says what I do, then offers the two ways in */
+.hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding-top: 60px; padding-bottom: 96px; position: relative; }
+.hero h1, .hero .sub, .ways { position: relative; z-index: 1; }
+.hero { isolation: isolate; }
+.hero h1 { font-weight: 800; font-size: clamp(2.7rem, 7.4vw, 7rem); line-height: .98; letter-spacing: -.03em; max-width: 13.5ch; }
+.hero h1 .wl { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .14em; margin-bottom: -.14em; }
+.hero h1 .w { display: inline-block; }
+.hero .sub { font-size: clamp(1.05rem, 1.5vw, 1.3rem); max-width: 46ch; margin: 26px 0 30px; color: var(--cream-2); }
+.btn { display: inline-block; text-decoration: none; font-weight: 600; border-radius: 12px; padding: 14px 20px; cursor: pointer; border: 2px solid var(--cream); background: transparent; transition: background .2s, color .2s; }
+.btn:hover { background: var(--cream); color: var(--ink); }
+.btn.solid { background: var(--hot); border-color: var(--hot); color: var(--ink); }
+.btn.solid:hover { background: var(--cream); border-color: var(--cream); }
+.ways { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* the nine colours: a strip you can jump from. It previews the idea of the page */
+.tabs { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 28px; display: flex; gap: 4px; height: 34px; align-items: flex-end; list-style: none; margin: 0; padding: 0; }
+.tabs li { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.tabs button { width: 100%; height: 12px; border: 0; border-radius: 4px 4px 0 0; cursor: pointer; background: var(--c); transition: height .3s var(--spring); }
+.tabs button:hover, .tabs button:focus-visible { height: 34px; }
+
+.about { padding-top: 15vh; padding-bottom: 15vh; display: grid; grid-template-columns: minmax(220px, 32%) 1fr; gap: 6vw; align-items: center; }
+.photo { margin: 0; aspect-ratio: 4 / 5; border-radius: 22px; overflow: hidden; background: var(--ink-2); }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1) contrast(1.05); }
+.about h2 { font-weight: 700; font-size: clamp(1.9rem, 3.8vw, 3.3rem); line-height: 1.04; letter-spacing: -.02em; max-width: 19ch; margin-bottom: 20px; }
+.about p { color: var(--cream-2); margin: 0 0 14px; max-width: 60ch; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; margin: 24px 0 0; }
+.facts dt { font-weight: 600; color: var(--cream); }
+.facts dd { margin: 2px 0 0; color: var(--cream-2); font-size: .96rem; }
+.ways.tight { margin-top: 26px; }
+
+/* a project: pinned, its colour fills the whole screen */
+.project { position: relative; height: 100svh; overflow: hidden; background: var(--world); color: var(--on); }
+.p-grid { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(300px, 33%) minmax(0, 1fr); gap: 2vw; align-items: center; padding: 64px var(--gutter) 24px; max-width: 1560px; margin: 0 auto; }
+.p-copy { position: relative; z-index: 2; }
+.p-tag { font-weight: 500; opacity: .8; font-size: .95rem; }
+.p-copy h2 { font-weight: 800; font-size: clamp(2.5rem, 4.6vw, 4.6rem); letter-spacing: -.03em; line-height: 1; margin: 6px 0 22px; }
+.caps { position: relative; min-height: 158px; }
+.cap { position: absolute; inset: 0 0 auto; opacity: 0; transform: translateY(14px); transition: opacity .28s var(--ease), transform .5s var(--spring); pointer-events: none; }
+.cap.on { opacity: 1; transform: none; }
+.cap h3 { font-weight: 700; font-size: clamp(1.45rem, 2.2vw, 2.1rem); line-height: 1.1; letter-spacing: -.015em; margin-bottom: 8px; }
+.cap p { margin: 0; max-width: 34ch; color: var(--on-2); font-size: 1.05rem; }
+.moments { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.moments .dot { width: 34px; height: 34px; border-radius: 10px; border: 2px solid color-mix(in srgb, var(--on) 30%, transparent); background: none; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--on); transition: background .2s, color .2s, border-color .2s; }
+.moments .dot:hover { border-color: var(--on); }
+.moments .dot.on { background: var(--hot); border-color: var(--hot); color: var(--world); }
+.moments .link, .more { margin-left: 8px; background: none; border: 0; cursor: pointer; font-weight: 600; font-size: 15px; color: var(--on); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; }
+.more { margin-left: 0; opacity: .85; }
+.proof { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 18px 0 0; padding: 0; list-style: none; font-weight: 600; font-size: .95rem; }
+.how { margin-top: 8px; font-size: .95rem; color: var(--on-2); max-width: 38ch; }
+.how[hidden] { display: none; }
+.stage { position: relative; height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; perspective: 1500px; }
+.rig { position: absolute; inset: 0; }
+.rig svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; display: block; }
+.rig .front { pointer-events: none; }
+.gl { position: absolute; inset: 0; pointer-events: none; }
+.gl canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gl-on .fb { display: none; }
+.rail { position: fixed; right: 10px; top: 50%; transform: translateY(-50%); z-index: 15; display: flex; flex-direction: column; gap: 5px; opacity: 0; pointer-events: none; transition: opacity .3s; }
+body[data-working] .rail { opacity: 1; pointer-events: auto; }
+.rail button { position: relative; width: 20px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; }
+.rail button::before { content: ""; position: absolute; inset: 0 4px; border: 2px solid rgba(255, 255, 255, .55); border-radius: 5px; background: var(--c); transition: transform .25s var(--spring), border-color .2s; }
+.rail button:hover::before, .rail button:focus-visible::before, .rail button.on::before { transform: scaleX(1.5); border-color: #fff; }
+.rail span { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: #111; color: #fff; font: 500 13px/1 var(--body); padding: 6px 9px; border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.rail button:hover span, .rail button:focus-visible span { opacity: 1; }
+@media (max-width: 820px) { .rail { display: none; } }
+.hero-rig::before { content: ""; position: absolute; inset: 4% 8%; background: radial-gradient(closest-side, rgba(120, 130, 255, .13), transparent); pointer-events: none; }
+.hero-rig { position: absolute; left: 46%; right: -2vw; top: 60px; bottom: 76px; z-index: -1; }
+.stage text { font-family: var(--body); }
+.stage .d { font-family: var(--display); }
+
+.world-job { --world: #0d3b3f; --on: #f6f1dc; --on-2: #bcd2cd; --hot: #ff8a2a; }
+.world-diss { --world: #2b1050; --on: #fff4e6; --on-2: #cdbbe6; --hot: #ff4d8d; }
+
+.next { min-height: 80svh; display: flex; flex-direction: column; justify-content: center; padding-top: 10vh; padding-bottom: 10vh; }
+.next h2 { font-weight: 800; font-size: clamp(2.4rem, 6vw, 5rem); letter-spacing: -.03em; line-height: 1; margin-bottom: 26px; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1.6fr); gap: 16px; align-items: baseline; padding: 12px 0; border-top: 1px solid rgba(255, 255, 255, .12); }
+.rows i { width: 14px; height: 14px; border-radius: 4px; background: var(--c); align-self: center; }
+.rows b { font-family: var(--display); font-size: 1.2rem; font-weight: 700; }
+.rows span { color: var(--cream-2); }
+.contact { padding-top: 14vh; padding-bottom: 14vh; }
+.contact h2 { font-weight: 800; font-size: clamp(3rem, 9vw, 8rem); letter-spacing: -.035em; line-height: .95; margin-bottom: 28px; }
+footer { padding: 24px var(--gutter); color: var(--cream-2); font-size: .9rem; }
+
+@media (max-width: 820px) {
+  .head nav { gap: 14px; font-size: 14px; }
+  .about { grid-template-columns: minmax(0, 1fr); }
+  .photo { max-width: 240px; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .p-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: 54svh auto; align-items: start; gap: 0; padding-top: 56px; padding-bottom: 12px; }
+  .hero-rig { display: none; }
+  .stage { order: -1; }
+  .stage svg { overflow: hidden; }
+  .p-copy h2 { font-size: 1.5rem; margin: 0 0 8px; }
+  .p-tag, .proof { display: none; }
+  .caps { min-height: 128px; }
+  .cap h3 { font-size: 1.35rem; }
+  .cap p { font-size: .98rem; max-width: none; }
+  .rows li { grid-template-columns: 18px minmax(0, 1fr); }
+  .rows span { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
 </script>
-<script type="module" src="js/main.js"></script>
 </head>
 <body>
-<a class="skip" href="#work">Skip to projects</a>
-
-<header class="top" id="top">
-  <div class="wrap">
-    <a class="brand" href="#">Kaif Nadeem</a>
-    <nav aria-label="Main">
-      <ul class="nav">
-        <li><a href="#work" data-nav="work">Work</a></li>
-        <li><a href="#about" data-nav="about">About</a></li>
-        <li><a href="#contact" data-nav="contact">Contact</a></li>
-      </ul>
-    </nav>
-  </div>
+<header class="head">
+  <a class="me" href="#top">Kaif Nadeem</a>
+  <nav><a href="#about">About</a><a href="#work">Work</a><a href="#contact">Contact</a></nav>
 </header>
 
-<main>
-  <section class="hero wrap" aria-labelledby="hero-h">
-    <h1 id="hero-h">AI automation and business systems, built for how a business really runs.</h1>
-    <p>Estimator turned systems builder · Manchester · Built with Claude. Four hackathon awards.</p>
-  </section>
+<nav class="rail" id="rail" aria-label="Projects"></nav>
 
-  <section id="work" class="work" aria-labelledby="work-h">
-    <h2 id="work-h" class="sr-only">Work</h2>
-    <div class="stage-head wrap">
-      <p class="hint" id="hint">Click the machine to take it apart.</p>
-      <div class="counter" aria-hidden="true">
-        <span class="ticks" id="ticks"></span>
-        <span><span id="count-now">01</span><span class="count-of"> / <span id="count-all">03</span></span></span>
+<section class="hero wrap" id="top">
+  <h1 id="hero-h">I build the systems a business actually runs on.</h1>
+  <p class="sub">AI automation and custom software, from someone who priced jobs for a living first. Based in Manchester. Built with Claude.</p>
+  <div class="ways"><a class="btn solid" href="mailto:kfnadeem@gmail.com?subject=A%20project">I have a project</a><a class="btn" href="files/Kaif_Nadeem_CV.pdf" download>Download my CV</a></div>
+  <ul class="tabs" id="tabs" aria-label="Jump to a project"></ul>
+  <div class="rig hero-rig" aria-hidden="true"><svg viewBox="0 0 900 720"></svg><div class="gl"></div></div>
+</section>
+
+<section class="about wrap" id="about">
+  <figure class="photo"><img src="img/kaif.jpg" alt="Kaif Nadeem" width="800" height="1000" loading="lazy"></figure>
+  <div>
+    <h2>I started as an estimator. Now I build the systems the business runs on.</h2>
+    <p>I joined a UK construction contractor pricing jobs from drawings: over 650 estimates. I became the company's in-house developer, then replaced its ERP with a job system I specified, tested and rolled out in three weeks. The whole team uses it every day, from the office to site crews on tablets.</p>
+    <p>I bring the problem, the business rules and the testing; Claude writes most of the code. That's how I also ship AI workflows, Android apps, Roblox games and a 3D-print shop on the side.</p>
+    <dl class="facts">
+      <div><dt>For clients</dt><dd>Job systems, AI assistants and office automation, built around how you already work</dd></div>
+      <div><dt>Recognition</dt><dd>4 hackathon awards: Manchester, Bradford (2) and Tameside</dd></div>
+      <div><dt>Day job</dt><dd>Estimating, operations and systems at a construction contractor</dd></div>
+    </dl>
+  </div>
+</section>
+
+<div id="work"></div>
+
+<!-- ============================== JOB SYSTEM ============================== -->
+<section class="project world-job" id="p-job" aria-label="Job System">
+  <div class="p-grid">
+    <div class="p-copy">
+      <span class="p-tag">Project 1 of 9, live in daily use</span>
+      <h2>Job System</h2>
+      <div class="caps"></div>
+      <div class="moments"></div>
+      <ul class="proof"><li>30+ screens</li><li>Rolled out in 3 weeks</li><li>Whole team, every day</li><li>ERP subscription cancelled</li></ul>
+      <button class="more" aria-expanded="false">How it's built</button>
+      <p class="how" hidden>A web app and an offline tablet app, connected to accounting and proposal software, with an AI assistant that logs everything it does. Over 1,100 automated tests run before every update. Everything shown here is an illustration with made-up data, not the real system.</p>
+    </div>
+    <div class="stage">
+      <div class="rig">
+      <svg viewBox="0 0 900 720" role="img" aria-label="One job moving through the whole business system, from first enquiry to final payment">
+        <g id="j-app" opacity="0"></g>
+        <g id="j-mess"></g>
+      </svg>
+      <div class="gl"></div>
+      <svg class="front" viewBox="0 0 900 720" aria-hidden="true"><g id="j-screen" opacity="0"></g></svg>
       </div>
     </div>
+  </div>
+</section>
 
-    <div class="band" id="band" aria-roledescription="carousel" aria-label="Projects">
-      <div class="track" id="track"></div>
-      <div class="callouts" id="callouts" data-mode="off">
-        <svg class="leaders" id="leaders" aria-hidden="true"></svg>
-        <div class="labels" id="labels" role="group" aria-label="Parts"></div>
+<!-- ============================== DISSPICABLE ============================== -->
+<section class="project world-diss" id="p-diss" aria-label="dissPICable">
+  <div class="p-grid">
+    <div class="p-copy">
+      <span class="p-tag">Project 3 of 9, built in one day</span>
+      <h2>dissPICable</h2>
+      <div class="caps"></div>
+      <div class="moments"></div>
+      <ul class="proof"><li>Won Best Use of Gemma 4</li><li>Hack Day Manchester 2026</li></ul>
+      <button class="more" aria-expanded="false">How it's built</button>
+      <p class="how" hidden>Node, Gemma 4 for sight, character and judging, ElevenLabs for each object's voice and for transcribing you, live voting over QR. Built with Debanjan Ray and Hussain Afham.</p>
+    </div>
+    <div class="stage">
+      <div class="rig">
+      <svg viewBox="0 0 900 720" role="img" aria-label="A mug wakes up, raps a roast at you, you rap back and the crowd votes">
+        <defs>
+          <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76b" stop-opacity=".55"/><stop offset="1" stop-color="#ffd76b" stop-opacity="0"/></linearGradient>
+        </defs>
+        <g id="d-stage" opacity="0">
+          <ellipse cx="450" cy="600" rx="380" ry="62" fill="#451b7c"/>
+          <path d="M210 -40 L320 -40 L560 590 L120 590 Z" fill="url(#beam)" transform="translate(70 0)"/>
+          <path d="M580 -40 L690 -40 L780 590 L340 590 Z" fill="url(#beam)" transform="translate(-70 0)"/>
+        </g>
+        <ellipse id="d-shadow" cx="400" cy="480" rx="176" ry="24" fill="#150829" opacity=".55"/>
+        <g id="d-phone">
+          <rect x="316" y="110" width="268" height="500" rx="36" fill="#0d0a1c"/>
+          <rect x="330" y="150" width="240" height="420" rx="10" fill="#5b3a8e"/>
+          <rect x="405" y="124" width="90" height="12" rx="6" fill="#2b2444"/>
+          <g id="d-shutter"><circle cx="450" cy="522" r="28" fill="none" stroke="#fff" stroke-width="4"/><circle cx="450" cy="522" r="21" fill="#fff"/></g>
+        </g>
+      </svg>
+      <div class="gl"></div>
+      <svg class="front" viewBox="0 0 900 720" aria-hidden="true">
+        <!-- the mug itself is real 3D in the layer below; this group is its face, and it steers the mug's position -->
+        <g id="d-mug">
+          <image class="fb" href="art/mug.webp" x="180" y="170" width="440" height="314" preserveAspectRatio="xMidYMid meet"/>
+          <g id="d-face" opacity="0">
+            <ellipse cx="316" cy="308" rx="50" ry="49" fill="#3a2b1c" opacity=".22"/><ellipse cx="442" cy="304" rx="58" ry="57" fill="#3a2b1c" opacity=".22"/>
+            <g id="d-eye-l"><circle cx="312" cy="300" r="46" fill="#fff" stroke="#1b1230" stroke-width="5"/><circle class="pup" cx="322" cy="308" r="22" fill="#1b1230"/></g>
+            <g id="d-eye-r"><circle cx="438" cy="296" r="54" fill="#fff" stroke="#1b1230" stroke-width="5"/><circle class="pup" cx="428" cy="306" r="26" fill="#1b1230"/></g>
+            <path id="d-brow-l" d="M268 248 L356 262" stroke="#1b1230" stroke-width="13" stroke-linecap="round"/>
+            <path id="d-brow-r" d="M398 256 L486 232" stroke="#1b1230" stroke-width="13" stroke-linecap="round"/>
+            <ellipse id="d-mouth" cx="372" cy="396" rx="58" ry="26" fill="#1b1230"/>
+          </g>
+        </g>
+        <rect id="d-flash" x="316" y="110" width="268" height="500" rx="36" fill="#fff" opacity="0"/>
+        <g id="d-bubble" opacity="0">
+          <rect x="430" y="36" width="450" height="124" rx="24" fill="#fff4e6"/><path d="M490 156 L466 208 L540 156z" fill="#fff4e6"/>
+          <text x="456" y="86" font-size="29" font-weight="700" class="d" fill="#2b1050">You've got less bite</text>
+          <text x="456" y="126" font-size="29" font-weight="700" class="d" fill="#2b1050">than my decaf.</text>
+        </g>
+        <g id="d-reply" opacity="0">
+          <rect x="24" y="530" width="500" height="124" rx="24" fill="#ff4d8d"/>
+          <text x="50" y="580" font-size="27" font-weight="700" class="d" fill="#1b0a33">Big talk for something</text>
+          <text x="50" y="620" font-size="27" font-weight="700" class="d" fill="#1b0a33">I wash once a year.</text>
+        </g>
+        <g id="d-mic" opacity="0" transform="translate(660 480) rotate(14)">
+          <rect x="-58" y="-112" width="116" height="224" rx="20" fill="#0d0a1c"/><rect x="-50" y="-96" width="100" height="190" rx="6" fill="#ff4d8d"/>
+          <g id="d-wave" fill="#1b0a33"></g>
+        </g>
+        <g id="d-crowd" opacity="0"></g>
+        <g id="d-score" opacity="0">
+          <circle cx="716" cy="136" r="104" fill="#fff4e6"/>
+          <text id="d-score-n" x="716" y="154" text-anchor="middle" font-size="76" font-weight="800" class="d" fill="#2b1050">0</text>
+          <text x="716" y="192" text-anchor="middle" font-size="19" font-weight="600" fill="#2b1050">out of 100</text>
+        </g>
+        <g id="d-win" opacity="0"><rect x="60" y="44" width="348" height="66" rx="16" fill="#ffc93c"/><text x="234" y="87" text-anchor="middle" font-size="27" font-weight="800" class="d" fill="#2b1050">You beat the mug</text></g>
+      </svg>
       </div>
-      <div class="strip" id="strip" role="group" aria-label="Parts"></div>
-
-      <button class="arrow arrow-prev" type="button" id="prev" aria-controls="track">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-        <span class="arrow-label" id="prev-label"></span>
-      </button>
-      <button class="arrow arrow-next" type="button" id="next" aria-controls="track">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-        <span class="arrow-label" id="next-label"></span>
-      </button>
-
-      <aside class="chapter" id="chapter" aria-labelledby="chapter-title" hidden>
-        <div class="sheet-grip" aria-hidden="true"></div>
-        <div class="chapter-head">
-          <p class="chapter-num" id="chapter-num"></p>
-          <button class="icon-btn" type="button" id="chapter-close">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
-            <span class="sr-only">Close chapter</span>
-          </button>
-        </div>
-        <div class="chapter-scroll" id="chapter-scroll">
-          <h3 id="chapter-title" tabindex="-1"></h3>
-          <p class="chapter-body" id="chapter-body"></p>
-          <ul class="chips" id="chapter-tech" aria-label="Tech"></ul>
-          <figure class="chapter-shot" id="chapter-shot" hidden>
-            <img alt="" id="chapter-img" loading="lazy">
-          </figure>
-        </div>
-        <nav class="chapter-nav" aria-label="Chapters">
-          <button type="button" class="text-btn" id="chapter-prev"></button>
-          <button type="button" class="text-btn text-btn-end" id="chapter-next"></button>
-        </nav>
-      </aside>
     </div>
+  </div>
+</section>
 
-    <div class="info wrap" id="info"></div>
-    <p class="sr-only" id="announce" aria-live="polite"></p>
-  </section>
+<section class="contact wrap" id="contact">
+  <h2>Let's build something.</h2>
+  <div class="ways"><a class="btn solid" href="mailto:kfnadeem@gmail.com">Email me</a><a class="btn" href="https://www.linkedin.com/in/kaifnadeem/" target="_blank" rel="noopener">LinkedIn</a><a class="btn" href="files/Kaif_Nadeem_CV.pdf" download>Download CV</a></div>
+</section>
+<footer>Built with Claude. 3D models made in Blender, with furniture from Kenney's free CC0 kit.</footer>
 
-  <section id="about" class="about wrap" aria-labelledby="about-h">
-    <figure class="photo" id="photo">
-      <img id="photo-img" alt="Kaif Nadeem" width="800" height="1000" loading="lazy">
-      <span class="photo-ph" aria-hidden="true">[PHOTO]</span>
-    </figure>
-    <div class="about-text">
-      <h2 id="about-h">I started as an estimator. Now I build the systems the business runs on.</h2>
-      <div class="prose">
-        <p>I joined a UK piling and concrete contractor as an estimator, pricing jobs from drawings: over 650 estimates. I became the company's Odoo developer, then replaced Odoo with a job system I specified, tested and rolled out in three weeks. It is now used every day by the whole team, from the office to site crews on tablets, and the ERP subscription is cancelled.</p>
-        <p>I build with Claude. I bring the problem, the business rules and the testing; Claude writes most of the code. That is how I also ship AI office workflows, Android apps, Roblox games and a 3D-print shop on the side.</p>
-      </div>
-      <dl class="facts">
-        <div><dt>Day job</dt><dd>Estimating, operations and systems at a construction contractor</dd></div>
-        <div><dt>Builds with</dt><dd>Claude, on every project</dd></div>
-        <div><dt>Recognition</dt><dd>4 hackathon awards: Manchester (1), Bradford (2), Tameside Hackathon winner</dd></div>
-        <div><dt>Open to</dt><dd>In-house AI automation and business systems roles, Manchester / hybrid</dd></div>
-      </dl>
-    </div>
-  </section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/story-more.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const { gsap, ScrollTrigger, Lenis } = window;
+  gsap.registerPlugin(ScrollTrigger);
+  let lenis = null;
+  if (Lenis && !reduce) {
+    lenis = new Lenis({ lerp: 0.09 });
+    lenis.on("scroll", ScrollTrigger.update);
+    gsap.ticker.add((t) => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
+  const go = (y) => (lenis ? lenis.scrollTo(y, { duration: 1.1 }) : scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" }));
+  const topOf = (el) => el.getBoundingClientRect().top + scrollY;
+  for (const a of $$('a[href^="#"]')) a.addEventListener("click", (e) => { e.preventDefault(); go(topOf($(a.getAttribute("href")))); });
 
-  <section id="contact" class="contact wrap" aria-labelledby="contact-h">
-    <div class="contact-intro">
-      <h2 id="contact-h">Get in touch</h2>
-      <p>Email is quickest. I reply in the evenings.</p>
-    </div>
-    <ul class="contact-list">
-      <li><a class="contact-row" data-link="email"><span class="contact-k">Email</span><span class="contact-v" data-value="email"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
-      <li><a class="contact-row" data-link="linkedin"><span class="contact-k">LinkedIn</span><span class="contact-v" data-value="linkedin"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
-      <li><a class="contact-row" data-link="github"><span class="contact-k">GitHub</span><span class="contact-v" data-value="github"></span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg></a></li>
-      <li><a class="contact-row" href="files/Kaif_Nadeem_CV.pdf" download="Kaif_Nadeem_CV.pdf"><span class="contact-k">CV</span><span class="contact-v">Download PDF</span><svg class="contact-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5v12M6 11l6 6 6-6M5 20h14"/></svg></a></li>
-    </ul>
-  </section>
-</main>
+  window.STORY.markup(); // the seven sections exist before anything measures the page
 
-<footer class="foot wrap">
-  <span>Kaif Nadeem, 2026</span>
-  <span>AI automation and business systems. Built with Claude.</span>
-</footer>
+  // ---------------------------------------------------------------- the nine projects
+  const [stanTab, ...moreTabs] = window.STORY.PROJECTS.map((p) => [p.name, p.world === "#3b2418" ? "#9a6a3a" : p.world === "#0e2540" ? "#2a7fb8" : p.world, "#" + p.id]);
+  const ALL = [["Job System", "#1d7a78", "#p-job"], stanTab, ["dissPICable", "#7a35d6", "#p-diss"], ...moreTabs];
+  $("#tabs").innerHTML = ALL.map(([t, c], i) => `<li><button style="--c:${c}" data-i="${i}" title="${t}" aria-label="${t}"></button></li>`).join("");
+  $("#rail").innerHTML = ALL.map(([t, c], i) => `<button style="--c:${c}" data-i="${i}" aria-label="${t}"><span>${t}</span></button>`).join("");
+  $$("#tabs button, #rail button").forEach((b) => b.addEventListener("click", () => { const el = $(ALL[+b.dataset.i][2]), pin = el.closest(".pin-spacer") || el; go(topOf(pin) + 2); }));
 
-<noscript><p class="wrap noscript">The project carousel needs JavaScript. Email <a href="mailto:kfnadeem@gmail.com">kfnadeem@gmail.com</a> for links to the work.</p></noscript>
+  // ---------------------------------------------------------------- hero
+  const h1 = $("#hero-h");
+  h1.innerHTML = h1.textContent.split(" ").map((w) => `<span class="wl"><span class="w">${w}</span></span>`).join(" ");
+  if (!reduce) {
+    gsap.from(".hero .w", { yPercent: 110, duration: 1.1, stagger: 0.05, ease: "expo.out", delay: 0.1 });
+    gsap.from(".hero .sub, .hero .ways, .tabs", { opacity: 0, y: 14, duration: 0.8, stagger: 0.1, delay: 0.55, ease: "power3.out" });
+  }
+
+  // ---------------------------------------------------------------- the 3D layer: ONE canvas for the whole page
+  // It moves to whichever section is on screen, loads models only as you get near, draws only while visible,
+  // and if WebGL is missing or the page loses it, the 2D page and its plain images carry on without it.
+  const G3 = (() => {
+    const items = [], secs = new Map(), gltfs = new Map();
+    let hemi, key, rim, shadowTex;
+    let T3, renderer, scene, camera, Loader, canvas, active = null, failed = false, starting = false, W = 0, H = 0, last = 0, clock = 0, slow = 0, frames = 0;
+    // each section lights its objects with its own colours, so they belong to that world
+    const LIGHT = new Map();
+    const setLight = () => {
+      const l = LIGHT.get(active) || {};
+      hemi.color.set(l.sky || "#ffffff"); hemi.groundColor.set(l.ground || "#333344"); hemi.intensity = l.fill ?? 1.3;
+      key.color.set(l.key || "#ffffff"); key.intensity = l.keyI ?? 1.5;
+      rim.color.set(l.rim || "#fff0d0"); rim.intensity = l.rimI ?? 1.1;
+    };
+    const add = (sec, name, init) => {
+      const s = { sec, name, x: 450, y: 360, size: 200, yaw: 0, pitch: 0, roll: 0, on: 1, spin: 0, bob: 0, idle: 0, k: 1, group: null, ...init };
+      if (reduce) { s.spin = 0; s.bob = 0; }
+      items.push(s);
+      if (!secs.has(sec)) secs.set(sec, { loaded: false });
+      return s;
+    };
+    async function boot() {
+      const [three, gl, env] = await Promise.all([import("three"), import("three/addons/loaders/GLTFLoader.js"), import("three/addons/environments/RoomEnvironment.js")]);
+      T3 = three; Loader = new gl.GLTFLoader();
+      canvas = document.createElement("canvas");
+      renderer = new T3.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+      renderer.outputColorSpace = T3.SRGBColorSpace;
+      renderer.toneMapping = T3.NeutralToneMapping;
+      scene = new T3.Scene();
+      scene.environment = new T3.PMREMGenerator(renderer).fromScene(new env.RoomEnvironment(), 0.04).texture;
+      scene.environmentIntensity = 0.42; // low, so colours stay rich instead of washing out
+      key = new T3.DirectionalLight(0xffffff, 1.5); key.position.set(-0.6, 1, 1); scene.add(key);
+      rim = new T3.DirectionalLight(0xfff0d0, 1.1); rim.position.set(0.8, 0.6, -0.8); scene.add(rim);
+      hemi = new T3.HemisphereLight(0xffffff, 0x333344, 1.3); scene.add(hemi);
+      // one soft blob, reused for every contact shadow (a texture, not a blur, so it costs nothing per frame)
+      const c = document.createElement("canvas"); c.width = c.height = 128;
+      const x = c.getContext("2d"), g = x.createRadialGradient(64, 64, 4, 64, 64, 64);
+      g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(0.45, "rgba(0,0,0,.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
+      x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+      shadowTex = new T3.CanvasTexture(c);
+      camera = new T3.PerspectiveCamera(14, 1, 10, 20000);
+      canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); failed = true; document.body.classList.remove("gl-on"); canvas.remove(); });
+    }
+    const loadSec = async (sec) => {
+      const rec = secs.get(sec);
+      if (rec.loaded || failed) return;
+      rec.loaded = true;
+      try {
+        if (!starting) { starting = boot(); }
+        await starting;
+        await Promise.all(items.filter((s) => s.sec === sec).map(async (s) => {
+          if (!gltfs.has(s.name)) gltfs.set(s.name, new Promise((res, rej) => Loader.load(`models/p/${s.name}.glb`, res, undefined, rej)));
+          const model = (await gltfs.get(s.name)).scene.clone(true);
+          if (s.tint) model.traverse((o) => { if (o.isMesh && o.material.name === "Filament") { o.material = o.material.clone(); o.material.color.set(s.tint); } });
+          // polished metal is only ever what it reflects: give metals more of the room than the rest
+          model.traverse((o) => { if (o.isMesh && o.material.metalness > 0.5) { o.material.envMap = scene.environment; o.material.envMapIntensity = 1.9; } });
+          // every model becomes one unit across its longest side, centred, so "size" is simply its size on the page
+          const box = new T3.Box3().setFromObject(model), c = box.getCenter(new T3.Vector3()), d = box.getSize(new T3.Vector3());
+          model.position.sub(c);
+          const k = 1 / Math.max(d.x, d.y, d.z), inner = new T3.Group(); inner.add(model); inner.scale.setScalar(k);
+          s.group = new T3.Group(); s.group.add(inner); s.group.visible = false; scene.add(s.group);
+          if (s.shadow) {
+            s.blob = new T3.Mesh(new T3.PlaneGeometry(1, 1), new T3.MeshBasicMaterial({ map: shadowTex, color: s.shadow.c || "#000000", transparent: true, opacity: s.shadow.a ?? 0.5, depthWrite: false, toneMapped: false }));
+            s.blob.visible = false; scene.add(s.blob);
+          }
+        }));
+        document.body.classList.add("gl-on");
+      } catch (err) {
+        failed = true;
+        console.info("[3d] carrying on in 2D:", err.message);
+      }
+    };
+    const fit = () => {
+      if (!active || !renderer) return;
+      const r = $(".rig", active) || active, b = r.getBoundingClientRect();
+      const w = r.offsetWidth || b.width, h = r.offsetHeight || b.height;
+      if (w === W && h === H) return;
+      W = w; H = h;
+      renderer.setSize(W, H, false);
+      camera.aspect = W / H;
+      camera.position.set(0, 0, (H / 2) / Math.tan(T3.MathUtils.degToRad(7)));
+      camera.updateProjectionMatrix();
+    };
+    gsap.ticker.add(() => {
+      if (failed) return;
+      let best = null, area = 0;
+      for (const sec of secs.keys()) {
+        const r = sec.getBoundingClientRect();
+        if (r.top < innerHeight * 2 && r.bottom > -innerHeight) loadSec(sec);
+        const a = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+        if (a > area) { area = a; best = sec; }
+      }
+      if (!renderer || document.hidden) return;
+      if (best !== active) {
+        active = best;
+        if (active) { $(".gl", active).appendChild(canvas); W = H = 0; setLight(); }
+      }
+      if (!active) return;
+      fit();
+      const now = performance.now(), dt = last ? Math.min(0.05, (now - last) / 1000) : 0; last = now; clock += dt;
+      // if this device is struggling, drop sharpness once rather than stutter
+      if (dt > 0.034) slow++;
+      if (++frames === 90) { if (slow > 45 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); W = H = 0; } frames = slow = 0; }
+      const vbSvg = $(".rig svg", active);
+      const vb = vbSvg ? vbSvg.getAttribute("viewBox").split(" ").map(Number) : [0, 0, 900, 720];
+      const k = Math.min(W / vb[2], H / vb[3]), ox = (W - vb[2] * k) / 2 - vb[0] * k, oy = (H - vb[3] * k) / 2 - vb[1] * k;
+      for (const s of items) {
+        if (!s.group) continue;
+        if (s.sec !== active) { s.group.visible = false; if (s.blob) s.blob.visible = false; continue; }
+        if (s.sync) s.sync(s);
+        if (s.k >= 1) s.idle += s.spin * dt; // k below 1: the spin is settling
+        const on = Math.max(0, s.on);
+        s.group.visible = on > 0.01;
+        if (s.blob) s.blob.visible = s.group.visible;
+        if (!s.group.visible) continue;
+        const lift = Math.sin(clock * 1.3 + s.x) * s.bob;
+        s.group.position.set(ox + s.x * k - W / 2, H / 2 - (oy + (s.y + lift) * k), 0);
+        s.group.scale.setScalar(s.size * k * on);
+        s.group.rotation.set(s.pitch, s.yaw + (s.idle % (Math.PI * 2)) * Math.min(1, s.k) + (s.sway ? Math.sin(clock * 0.9) * s.sway : 0), s.roll);
+        if (s.blob) { // the shadow stays on the surface: it tightens as the object comes down, fades as it rises
+          const d = s.shadow, gap = Math.max(0, (d.floor ?? s.y) - s.y - (d.rest ?? 0));
+          const near = Math.max(0.25, 1 - gap / (d.reach || 420));
+          // it sits well behind the object so the object always covers it; f undoes the perspective shrink of sitting further back
+          const f = (camera.position.z + 600) / camera.position.z;
+          s.blob.position.set((ox + (s.x + (d.dx || 0)) * k - W / 2) * f, (H / 2 - (oy + (d.floor ?? s.y + (d.dy || 0)) * k)) * f, -600);
+          s.blob.scale.set(d.w * k * on * f * (1.25 - near * 0.25 - lift * 0.004), d.h * k * on * f, 1);
+          s.blob.material.opacity = (d.a ?? 0.5) * near * Math.min(1, on * 1.5);
+        }
+      }
+      renderer.render(scene, camera);
+    });
+    return { add, light: (sec, l) => LIGHT.set(sec, l) };
+  })();
+
+  // ---------------------------------------------------------------- one project: pinned scrub + captions + controls
+  function project(sel, moments, build) {
+    const sec = $(sel), caps = $(".caps", sec), dots = $(".moments", sec);
+    caps.innerHTML = moments.map(([t, p]) => `<div class="cap"><h3>${t}</h3><p>${p}</p></div>`).join("");
+    dots.innerHTML = moments.map(([t], i) => `<button class="dot" title="${t}" aria-label="Moment ${i + 1}: ${t}">${i + 1}</button>`).join("") + `<button class="link">Skip project</button>`;
+    const capEls = $$(".cap", caps), dotEls = $$(".dot", dots);
+    const tl = gsap.timeline({ defaults: { ease: "power2.inOut" } });
+    const starts = [], holds = [];
+    // each moment = its action, then a hold long enough to read it
+    const beat = (fn, hold = 1.3) => { starts.push(tl.duration()); fn(); holds.push(tl.duration() + hold * 0.4); tl.to({}, { duration: hold }); };
+    build(beat, tl);
+    let active = -1;
+    const setActive = () => {
+      const t = tl.time();
+      let k = 0; starts.forEach((s, i) => { if (t >= s - 0.001) k = i; });
+      if (k === active) return;
+      active = k;
+      capEls.forEach((c, i) => c.classList.toggle("on", i === k));
+      dotEls.forEach((d, i) => { d.classList.toggle("on", i === k); d.setAttribute("aria-current", i === k ? "step" : "false"); });
+    };
+    tl.eventCallback("onUpdate", setActive);
+    const st = ScrollTrigger.create({ trigger: sec, start: "top top", end: () => "+=" + innerHeight * moments.length * 0.72, pin: true, scrub: 0.5, animation: tl });
+    const yOf = (k) => st.start + (holds[k] / tl.duration()) * (st.end - st.start);
+    dotEls.forEach((d, i) => d.addEventListener("click", () => go(yOf(i))));
+    $(".link", dots).addEventListener("click", () => {
+      const pin = sec.closest(".pin-spacer") || sec;
+      go(topOf(pin) + pin.offsetHeight + 1);
+    });
+    const more = $(".more", sec), how = $(".how", sec);
+    more.addEventListener("click", () => { how.hidden = !how.hidden; more.setAttribute("aria-expanded", String(!how.hidden)); });
+    setActive();
+    return { st, tl };
+  }
+
+  // hero: three objects from the work, turning slowly
+  if (!matchMedia("(max-width: 820px)").matches) {
+    const heroSec = $(".hero");
+    G3.light(heroSec, { sky: "#e8e6ff", ground: "#2a2d6a", fill: 1.2, key: "#fff6e0", keyI: 1.7, rim: "#9fb0ff", rimI: 1.6 });
+    G3.add(heroSec, "hat", { x: 540, y: 190, size: 330, pitch: 0.34, roll: -0.12, spin: 0.42, bob: 9, shadow: { dy: 150, w: 330, h: 60, a: 0.34 } });
+    G3.add(heroSec, "ai", { x: 250, y: 400, size: 200, pitch: 0.34, roll: 0.1, sway: 0.7, bob: 11, shadow: { dy: 130, w: 190, h: 38, a: 0.32 } });
+    G3.add(heroSec, "coin", { x: 640, y: 530, size: 210, pitch: 0.25, roll: -0.08, spin: 0.9, bob: 8, shadow: { dy: 130, w: 190, h: 36, a: 0.32 } });
+  }
+
+  // ---------------------------------------------------------------- JOB SYSTEM: the whole app stays on screen, one job travels through it
+  const TEAL = "#0d3b3f", CREAM = "#f6f1dc", SAND = "#e7e0c4", ORANGE = "#ff8a2a", GREEN = "#3f9b6a", RED = "#d9513c", DARK = "#0d2a2d";
+  const T = (parent, x, y, str, attrs = {}) => { const t = svg("text", { x, y, fill: TEAL, ...attrs }, parent); t.textContent = str; return t; };
+  const tick = (parent, cx, cy, r = 13, ok = true) => {
+    const g = svg("g", {}, parent);
+    svg("circle", { cx, cy, r, fill: ok ? GREEN : RED }, g);
+    if (ok) svg("path", { d: `M${cx - 6} ${cy}l4 5 8-10`, stroke: "#fff", "stroke-width": 3, fill: "none" }, g);
+    else svg("path", { d: `M${cx - 5} ${cy - 5}l10 10m0-10l-10 10`, stroke: "#fff", "stroke-width": 3, fill: "none" }, g);
+    return g;
+  };
+  const app = $("#j-app");
+  // a soft shadow under the app, built from a few faint layers (no blur filter)
+  [[34, 0.05], [24, 0.06], [14, 0.08], [6, 0.1]].forEach(([g, a]) => svg("rect", { x: 10 - g, y: 40 - g * 0.4 + 14, width: 880 + g * 2, height: 640 + g * 2, rx: 18 + g, fill: "#02171a", opacity: a }, app));
+  svg("rect", { x: 10, y: 40, width: 880, height: 640, rx: 18, fill: CREAM }, app);
+
+  // the menu is always on screen: that's how you see the size of the thing
+  svg("path", { d: "M10 58a18 18 0 0 1 18-18h172v640H28a18 18 0 0 1-18-18z", fill: "#062125" }, app); // darker than the page, so the panel reads as part of the app
+  const MENU = [
+    ["Win the work", ["Enquiries", "Quick quotes", "Pricing tool", "Proposals", "Surveys"]],
+    ["Run the job", ["Job stages", "Planning board", "Crew tablets", "Daily logs", "Safety docs", "Equipment", "Requests"]],
+    ["Get paid", ["Invoicing", "Debtors", "Wages", "Bonuses", "KPIs"]],
+    ["AI", ["AI assistant", "Email drafts"]],
+  ];
+  const menu = {};
+  let my = 70;
+  for (const [head, items] of MENU) {
+    T(app, 26, my, head, { "font-size": 14.5, "font-weight": 700, fill: "#ffb36b", class: "d" });
+    my += 23;
+    menu[head] = items.map((name) => {
+      const g = svg("g", {}, app);
+      const hi = svg("rect", { x: 18, y: my - 17, width: 174, height: 23, rx: 6, fill: "#b9560f", opacity: 0 }, g);
+      T(g, 28, my, name, { "font-size": 14.5, fill: CREAM });
+      my += 25;
+      return { g, hi };
+    });
+    my += 7;
+  }
+  const allMenu = Object.values(menu).flat();
+
+  // the stage rail: one job travelling, start to finish
+  const STAGES = ["Enquiry", "Quote", "Won", "Survey", "Scheduled", "On site", "Finished", "Invoiced"];
+  const node = (i) => 250 + i * 86;
+  svg("rect", { x: node(0), y: 118, width: node(7) - node(0), height: 5, rx: 2.5, fill: SAND }, app);
+  const railOn = svg("rect", { x: node(0), y: 118, width: node(7) - node(0), height: 5, rx: 2.5, fill: ORANGE }, app);
+  gsap.set(railOn, { scaleX: 0, transformOrigin: "0% 50%" });
+  STAGES.forEach((s, i) => { svg("circle", { cx: node(i), cy: 120.5, r: 7, fill: i ? SAND : ORANGE, class: "stop" }, app); T(app, node(i), 148, s, { "font-size": 12.5, "font-weight": 500, "text-anchor": "middle" }); });
+  const stops = $$(".stop", app);
+  const token = svg("g", {}, app);
+  svg("rect", { x: -44, y: -15, width: 88, height: 30, rx: 15, fill: ORANGE }, token);
+  T(token, 0, 6, "Oak Lane", { "font-size": 15, "font-weight": 700, "text-anchor": "middle", fill: DARK, class: "d" });
+  gsap.set(token, { x: node(0), y: 88 });
+  const gate = svg("rect", { x: (node(2) + node(3)) / 2 - 5, y: 92, width: 10, height: 58, rx: 5, fill: RED, opacity: 0 }, app);
+
+  const panel = (name) => svg("g", { opacity: 0, id: "jp-" + name }, app);
+  const card = (p, x, y, w, h, fill = "#fff") => svg("rect", { x, y, width: w, height: h, rx: 14, fill }, p);
+
+  // TODAY: the screen everyone opens
+  const pToday = panel("today");
+  T(pToday, 226, 200, "Today", { "font-size": 30, "font-weight": 800, class: "d" });
+  const TILES = [["6", "enquiries to check"], ["3", "site visits today"], ["5", "crews out on jobs"], ["2", "invoices to chase"]];
+  const tiles = TILES.map(([n, l], i) => {
+    const g = svg("g", {}, pToday), x = 226 + (i % 2) * 324, y = 224 + (i >> 1) * 210;
+    card(g, x, y, 308, 192, i === 3 ? ORANGE : "#fff");
+    T(g, x + 26, y + 104, n, { "font-size": 84, "font-weight": 800, class: "d", fill: i === 3 ? DARK : TEAL });
+    T(g, x + 26, y + 156, l, { "font-size": 22, "font-weight": 500, fill: i === 3 ? DARK : TEAL });
+    return g;
+  });
+
+  // WIN THE WORK: enquiry, drawing, signed proposal
+  const pWin = panel("win");
+  const cw = 200, cy = 186, ch = 300, cx = (i) => 226 + i * 216;
+  const winA = svg("g", {}, pWin); card(winA, cx(0), cy, cw, ch);
+  T(winA, cx(0) + 18, cy + 40, "New enquiry", { "font-size": 21, "font-weight": 700, class: "d" });
+  [150, 164, 120, 158].forEach((w, i) => svg("rect", { x: cx(0) + 18, y: cy + 66 + i * 26, width: w, height: 10, rx: 5, fill: TEAL, opacity: .22 }, winA));
+  const winChip = svg("g", {}, winA); svg("rect", { x: cx(0) + 14, y: cy + 196, width: 172, height: 72, rx: 14, fill: TEAL }, winChip);
+  T(winChip, cx(0) + 30, cy + 226, "AI read the email", { "font-size": 15.5, "font-weight": 600, fill: CREAM }); T(winChip, cx(0) + 30, cy + 250, "and drafted the job", { "font-size": 15.5, fill: CREAM });
+  const winB = svg("g", {}, pWin); card(winB, cx(1), cy, cw, ch);
+  T(winB, cx(1) + 18, cy + 40, "Plan and price", { "font-size": 21, "font-weight": 700, class: "d" });
+  svg("path", { d: `M${cx(1) + 30} ${cy + 70}h140v120h-60v70h-80z`, fill: "#dfe9e6", stroke: TEAL, "stroke-width": 3 }, winB);
+  const winDots = [[30, 70], [100, 70], [170, 70], [170, 130], [170, 190], [110, 190], [110, 260], [30, 260], [30, 165]].map(([x, y]) => svg("circle", { cx: cx(1) + x, cy: cy + y, r: 8, fill: ORANGE, stroke: DARK, "stroke-width": 2 }, winB));
+  const winC = svg("g", {}, pWin); card(winC, cx(2), cy, cw, ch);
+  T(winC, cx(2) + 18, cy + 40, "Proposal", { "font-size": 21, "font-weight": 700, class: "d" });
+  [160, 140, 164, 110].forEach((w, i) => svg("rect", { x: cx(2) + 18, y: cy + 66 + i * 26, width: w, height: 10, rx: 5, fill: TEAL, opacity: .22 }, winC));
+  const sign = svg("path", { d: `M${cx(2) + 24} ${cy + 214}c18-34 28-34 24-6s16-30 26-16 12 18 28-4 14 16 44 0`, fill: "none", stroke: TEAL, "stroke-width": 3.5, "stroke-linecap": "round", pathLength: 1, "stroke-dasharray": 1, "stroke-dashoffset": 1 }, winC);
+  const signed = svg("g", {}, winC); svg("rect", { x: cx(2) + 18, y: cy + 238, width: 164, height: 42, rx: 21, fill: GREEN }, signed); T(signed, cx(2) + 100, cy + 266, "Signed", { "font-size": 20, "font-weight": 700, fill: "#fff", "text-anchor": "middle" });
+  T(pWin, 226, cy + 356, "Every quote comes from the same pricing tool, so nothing is priced from memory.", { "font-size": 17.5, "font-weight": 500 });
+  const winArrows = [0, 1].map((i) => svg("path", { d: `M${cx(i) + cw + 2} ${cy + 150}h12m-5-6l6 6-6 6`, fill: "none", stroke: TEAL, "stroke-width": 3 }, pWin));
+
+  // GATE: can't move on without what it needs
+  const pGate = panel("gate");
+  card(pGate, 226, 186, 632, 400, TEAL);
+  T(pGate, 258, 240, "Before this job can move on", { "font-size": 30, "font-weight": 800, class: "d", fill: CREAM });
+  [["Drawings in", true], ["Survey booked", true], ["Site photos", false]].forEach(([s, ok], i) => {
+    if (ok) tick(pGate, 276, 296 + i * 62, 18); T(pGate, 310, 304 + i * 62, s, { "font-size": 25, fill: CREAM });
+  });
+  // the padlock really hangs from this
+  svg("rect", { x: 729, y: 186, width: 12, height: 56, rx: 4, fill: "#8d99a0" }, pGate);
+  svg("circle", { cx: 735, cy: 246, r: 13, fill: "none", stroke: "#b8c2c8", "stroke-width": 6 }, pGate);
+  const miss = tick(pGate, 276, 420, 18, false), fixed = tick(pGate, 276, 420, 18, true);
+  gsap.set(fixed, { opacity: 0 });
+  const held = svg("g", {}, pGate); svg("rect", { x: 258, y: 480, width: 568, height: 70, rx: 14, fill: RED }, held); T(held, 284, 525, "Held: no site photos yet", { "font-size": 26, "font-weight": 700, fill: "#fff" });
+  const clear = svg("g", { opacity: 0 }, pGate); svg("rect", { x: 258, y: 480, width: 568, height: 70, rx: 14, fill: GREEN }, clear); T(clear, 284, 525, "Cleared to move on", { "font-size": 26, "font-weight": 700, fill: "#fff" });
+  const photo = svg("g", { opacity: 0 }, app);
+  svg("rect", { x: -60, y: -46, width: 120, height: 92, rx: 7, fill: "#fff" }, photo); svg("rect", { x: -52, y: -38, width: 104, height: 62, fill: "#7fb6c9" }, photo); svg("path", { d: "M-52 24l32-36 22 22 16-14 34 28z", fill: "#3d7a56" }, photo);
+
+  // ON SITE: the office's board and the crew's tablet
+  const pSite = panel("site");
+  T(pSite, 226, 200, "This week", { "font-size": 26, "font-weight": 800, class: "d" });
+  const BX = 300, BW = 42, BY = 232, BH = 76, CREWS = ["Crew A", "Crew B", "Crew C", "Crew D", "Crew E"];
+  ["M", "T", "W", "T", "F"].forEach((d, i) => T(pSite, BX + i * BW + BW / 2, 222, d, { "font-size": 15, "font-weight": 600, "text-anchor": "middle" }));
+  CREWS.forEach((c, r) => { T(pSite, 226, BY + r * BH + 40, c, { "font-size": 15.5, "font-weight": 600 }); svg("rect", { x: BX, y: BY + r * BH, width: BW * 5 - 4, height: BH - 10, rx: 8, fill: SAND, opacity: .7 }, pSite); });
+  const SLOTS = [[0, 0, 2, TEAL], [0, 3, 2, "#46507a"], [1, 1, 3, GREEN], [2, 0, 1, "#46507a"], [2, 2, 3, ORANGE], [3, 0, 3, TEAL], [4, 1, 2, "#46507a"], [4, 3, 2, GREEN]];
+  const slotEls = SLOTS.map(([r, d, l, f]) => svg("rect", { x: BX + d * BW + 3, y: BY + r * BH + 5, width: l * BW - 10, height: BH - 20, rx: 6, fill: f }, pSite));
+  const tabShadow = svg("g", { opacity: 0 }, pSite);
+  [[26, 0.06], [18, 0.08], [10, 0.1], [4, 0.14]].forEach(([g, a]) => svg("rect", { x: 524 - g, y: 176 - g * 0.3 + 12, width: 346 + g * 2, height: 490 + g * 2, rx: 26 + g, fill: "#0d2a2d", opacity: a }, tabShadow));
+  const tablet = svg("g", {}, $("#j-screen"));
+  svg("rect", { x: 524, y: 176, width: 346, height: 490, rx: 26, fill: "#10171a", class: "fb" }, tablet);
+  svg("rect", { x: 538, y: 192, width: 318, height: 458, rx: 12, fill: "#fff" }, tablet);
+  T(tablet, 558, 234, "Oak Lane, today", { "font-size": 25, "font-weight": 800, class: "d" });
+  const LOGS = ["Arrival photos", "Site log", "Materials used", "Safety docs read", "Daily diary"];
+  const logEls = LOGS.map((s, i) => { const g = svg("g", {}, tablet); tick(g, 574, 278 + i * 58, 16); T(g, 602, 285 + i * 58, s, { "font-size": 21, "font-weight": 500 }); return g; });
+  const offline = svg("g", {}, tablet); svg("rect", { x: 558, y: 572, width: 278, height: 56, rx: 28, fill: TEAL }, offline); T(offline, 697, 607, "No signal? Still works", { "font-size": 20, "font-weight": 600, "text-anchor": "middle", fill: CREAM });
+
+  // GET PAID: invoices, chasing, wages, the numbers
+  const pPaid = panel("paid");
+  T(pPaid, 226, 200, "Invoices on this job", { "font-size": 26, "font-weight": 800, class: "d" });
+  const PAY = ["Deposit", "Stage payment", "Final invoice"];
+  const payEls = PAY.map((s, i) => {
+    const g = svg("g", {}, pPaid), y = 222 + i * 78;
+    card(g, 226, y, 366, 66);
+    T(g, 246, y + 41, s, { "font-size": 21, "font-weight": 600 });
+    const pill = svg("rect", { x: 482, y: y + 15, width: 92, height: 36, rx: 18, fill: GREEN }, g);
+    T(g, 528, y + 40, "Paid", { "font-size": 18, "font-weight": 700, fill: "#fff", "text-anchor": "middle" });
+    return g;
+  });
+  const chase = svg("g", {}, pPaid); card(chase, 226, 462, 366, 66, ORANGE); T(chase, 246, 503, "Late payers get chased on time", { "font-size": 20, "font-weight": 600, fill: DARK });
+  const sync = svg("g", {}, pPaid); card(sync, 226, 540, 366, 66, TEAL); T(sync, 246, 581, "Synced with the accounts", { "font-size": 20, "font-weight": 600, fill: CREAM });
+  card(pPaid, 610, 222, 250, 384);
+  T(pPaid, 630, 262, "This year", { "font-size": 22, "font-weight": 700, class: "d" });
+  const kpiBars = [90, 130, 118, 170, 205, 250].map((h, i) => svg("rect", { x: 632 + i * 35, y: 578 - h, width: 26, height: h, rx: 5, fill: i === 5 ? ORANGE : TEAL }, pPaid));
+  gsap.set(kpiBars, { scaleY: 0, transformOrigin: "50% 100%" });
+
+  // AI across all of it
+  const pAi = panel("ai");
+  const q = svg("g", {}, pAi); svg("rect", { x: 226, y: 190, width: 480, height: 66, rx: 20, fill: TEAL }, q); T(q, 252, 232, "Which jobs still need chasing?", { "font-size": 23, fill: CREAM });
+  const a = svg("g", {}, pAi); svg("rect", { x: 300, y: 276, width: 558, height: 132, rx: 20, fill: "#fff" }, a); T(a, 326, 322, "Two invoices are past 14 days. I've drafted", { "font-size": 22 }); T(a, 326, 356, "the reminders for you to check and send.", { "font-size": 22 }); T(a, 326, 390, "Oak Lane is ready for its final invoice.", { "font-size": 22 });
+  const big = svg("g", {}, pAi); card(big, 226, 432, 632, 176, ORANGE);
+  T(big, 254, 516, "One assistant, every screen", { "font-size": 44, "font-weight": 800, class: "d", fill: DARK });
+  T(big, 254, 566, "Every change is logged under the person who asked for it.", { "font-size": 21, "font-weight": 500, fill: DARK }); T(big, 254, 592, "People stay in charge.", { "font-size": 21, "font-weight": 500, fill: DARK });
+
+  // the mess it replaced
+  const mess = $("#j-mess");
+  const MESS = [["sheet", 150, 170, -9], ["mail", 660, 130, 8], ["note", 250, 345, -5, "Call back?"], ["chat", 690, 370, 5, "Did anyone book the visit?"], ["paper", 170, 490, 7], ["note2", 540, 590, 9, "Unpaid??"]];
+  const messEls = MESS.map(([kind, x, y, r, words]) => {
+    const g = svg("g", {}, mess);
+    if (kind === "sheet") {
+      svg("rect", { x: -120, y: -86, width: 240, height: 172, rx: 8, fill: "#fff" }, g);
+      svg("rect", { x: -120, y: -86, width: 240, height: 30, rx: 8, fill: GREEN }, g);
+      for (let c = 1; c < 4; c++) svg("line", { x1: -120 + c * 60, y1: -56, x2: -120 + c * 60, y2: 86, stroke: "#b9c4bd", "stroke-width": 2 }, g);
+      for (let n = 1; n < 5; n++) svg("line", { x1: -120, y1: -56 + n * 28, x2: 120, y2: -56 + n * 28, stroke: "#b9c4bd", "stroke-width": 2 }, g);
+    } else if (kind === "mail") {
+      svg("rect", { x: -104, y: -70, width: 208, height: 140, rx: 10, fill: CREAM }, g);
+      svg("path", { d: "M-104 -62 L0 12 L104 -62", fill: "none", stroke: TEAL, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+      svg("circle", { cx: 96, cy: -66, r: 24, fill: RED }, g);
+      T(g, 96, -58, "47", { "text-anchor": "middle", "font-size": 24, "font-weight": 700, fill: "#fff" });
+    } else if (kind === "paper") {
+      svg("rect", { x: -82, y: -106, width: 164, height: 212, rx: 6, fill: "#fff" }, g);
+      for (let n = 0; n < 6; n++) svg("rect", { x: -62, y: -84 + n * 30, width: n % 2 ? 90 : 124, height: 9, rx: 4, fill: TEAL, opacity: .3 }, g);
+    } else if (kind === "chat") {
+      svg("rect", { x: -170, y: -44, width: 340, height: 88, rx: 22, fill: GREEN }, g);
+      T(g, 0, 9, words, { "text-anchor": "middle", "font-size": 21, "font-weight": 500, fill: "#fff" });
+    } else {
+      svg("rect", { x: -86, y: -74, width: 172, height: 148, fill: "#ffd94a" }, g);
+      T(g, 0, 12, words, { "text-anchor": "middle", "font-size": 29, "font-weight": 700, class: "d", fill: "#3c2f00" });
+    }
+    gsap.set(g, { x, y, rotation: r, transformOrigin: "50% 50%" });
+    return g;
+  });
+
+  const jobSec = $("#p-job");
+  G3.light(jobSec, { sky: "#fff4dc", ground: "#1d6a6a", fill: 1.35, key: "#fff2d8", keyI: 1.6, rim: "#a8e0d8", rimI: 1.3 });
+  const HAT = G3.add(jobSec, "hat", { x: 455, y: 345, size: 250, pitch: 0.34, roll: -0.1, spin: 0.7, yaw: -0.55,
+    shadow: { dy: 66, w: 200, h: 30, a: 0.5, c: "#02171a" } });
+  const LOCK = G3.add(jobSec, "lock", { x: 735, y: 345, size: 180, pitch: 0.05, on: 0,
+    sync(m) { // swings gently from its hook, like something with weight
+      const a = m.dropped ? m.roll : Math.sin(performance.now() / 780) * 0.085;
+      m.roll = a; m.yaw = a * 2.6;
+      if (!m.dropped) m.x = 735 + Math.sin(a) * 92;
+    } });
+  const TAB = G3.add(jobSec, "tablet", { x: 697, y: 1050, size: 490, on: 0 });
+  const COIN = G3.add(jobSec, "coin", { x: 820, y: 120, size: 92, spin: 3.4, on: 0,
+    shadow: { floor: 328, w: 62, h: 10, rest: 47, a: 0.55, reach: 260, c: "#02171a" } });
+  const CHIP = G3.add(jobSec, "ai", { x: 263, y: 342, size: 68, pitch: 0.2, sway: 0.4, on: 0,
+    shadow: { dy: 40, w: 66, h: 12, a: 0.35, c: "#0d2a2d" } });
+
+  project("#p-job", [
+    ["It started as a mess", "Spreadsheets, emails, sticky notes, group chats. Every job lived in six places, so things got missed."],
+    ["One system for the whole business", "Over 30 screens, from first enquiry to final payment. Everyone opens the same app and sees what needs doing today."],
+    ["Winning the work", "AI reads the enquiry email and drafts the job. It's then laid out and priced in one tool, and the proposal comes back signed."],
+    ["Nothing can skip a step", "Every stage checks the job has what it needs. If something's missing the job is held, and everyone can see why."],
+    ["Planned, then done on site", "The office plans every crew on a board. Crews log photos, materials and diaries on a tablet, even with no signal."],
+    ["Getting paid", "Every invoice is tracked against its job, late payers get chased, and wages, bonuses and the numbers all come from the same records."],
+    ["AI across all of it", "An AI assistant can look things up and do the legwork in any part of the system, safely."],
+  ], (beat, tl) => {
+    const lit = (head, on = 1) => tl.to(menu[head].map((m) => m.hi), { opacity: on ? 1 : 0, duration: 0.25, stagger: on ? 0.04 : 0 }, "<");
+    const moveTo = (i, dur = 0.7) => {
+      tl.to(token, { x: node(i), duration: dur }).to(railOn, { scaleX: i / 7, duration: dur }, "<");
+      stops.slice(1, i + 1).forEach((s) => tl.to(s, { fill: ORANGE, duration: 0.15 }, "<"));
+    };
+    const swap = (from, to) => { tl.to(from, { opacity: 0, duration: 0.25 }).fromTo(to, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, ">-0.05"); };
+
+    beat(() => { tl.to(messEls, { rotation: (i) => MESS[i][3] * 1.7, duration: 0.7, ease: "none" }); }, 1.1); // already on screen when you arrive
+    beat(() => {
+      tl.to(HAT, { x: 92, y: -6, size: 172, duration: 1.5, ease: "bounce.out" }, tl.duration() + 0.35);
+      tl.to(HAT, { k: 0, duration: 0.9, ease: "power2.out" }, "<");
+      tl.to(messEls, { x: 450, y: 360, rotation: 0, scale: 0.15, duration: 0.8, stagger: 0.04, ease: "power3.in" }, "<-0.35")
+        .to(messEls, { opacity: 0, duration: 0.1 }, ">-0.1")
+        .fromTo(app, { opacity: 0, scale: 0.9, svgOrigin: "450 360" }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.4)" }, "<")
+        .from(allMenu.map((m) => m.g), { opacity: 0, x: -14, duration: 0.3, stagger: 0.035 }, ">-0.2")
+        .to(pToday, { opacity: 1, duration: 0.2 }, "<")
+        .from(tiles, { opacity: 0, y: 26, duration: 0.4, stagger: 0.1, ease: "back.out(1.6)" }, "<");
+      // phones: the camera moves in on the working area so its text stays readable
+      if (matchMedia("(max-width: 820px)").matches) tl.to("#p-job .stage svg", { attr: { viewBox: "205 62 690 610" }, duration: 0.6 }, "<");
+    });
+    beat(() => {
+      swap(pToday, pWin);
+      lit("Win the work");
+      tl.from(winA, { opacity: 0, y: 20, duration: 0.3 }).from(winChip, { opacity: 0, scale: 0.8, svgOrigin: "326 420", duration: 0.3, ease: "back.out(2)" })
+        .from(winArrows[0], { opacity: 0, duration: 0.15 })
+        .from(winB, { opacity: 0, y: 20, duration: 0.3 }).from(winDots, { scale: 0, transformOrigin: "50% 50%", duration: 0.22, stagger: 0.05, ease: "back.out(3)" })
+        .from(winArrows[1], { opacity: 0, duration: 0.15 })
+        .from(winC, { opacity: 0, y: 20, duration: 0.3 }).to(sign, { attr: { "stroke-dashoffset": 0 }, duration: 0.5, ease: "none" }).from(signed, { opacity: 0, scale: 0.7, svgOrigin: "768 445", duration: 0.25, ease: "back.out(3)" });
+      moveTo(2);
+    });
+    beat(() => {
+      swap(pWin, pGate);
+      lit("Win the work", 0);
+      tl.to(menu["Run the job"][0].hi, { opacity: 1, duration: 0.2 }, "<");
+      tl.to(LOCK, { on: 1, duration: 0.35, ease: "back.out(2)" }, "<");
+      tl.to(gate, { opacity: 1, duration: 0.15 })
+        .to(token, { x: (node(2) + node(3)) / 2 - 52, duration: 0.25, ease: "power2.in" }).to(token, { x: node(2), duration: 0.3, ease: "back.out(3)" })
+        .to({}, { duration: 1.2 }) // stay blocked long enough to read why
+        .set(photo, { x: 790, y: 650, rotation: 14, scale: 1 })
+        .to(photo, { opacity: 1, duration: 0.12 }).to(photo, { x: 276, y: 420, scale: 0.3, rotation: 0, duration: 0.6 }, "<")
+        .to(photo, { opacity: 0, duration: 0.1 })
+        .to(miss, { opacity: 0, duration: 0.1 }, "<").to(fixed, { opacity: 1, duration: 0.1 }, "<")
+        .to(held, { opacity: 0, duration: 0.15 }, "<").to(clear, { opacity: 1, duration: 0.15 }, "<")
+        .set(LOCK, { dropped: true }, "<").to(LOCK, { y: 1000, roll: 0.9, yaw: 1.2, duration: 0.55, ease: "power2.in" }, "<").set(LOCK, { on: 0 })
+        .to(gate, { fill: GREEN, duration: 0.1 }).to(gate, { opacity: 0, duration: 0.25 });
+      moveTo(4);
+    }, 1);
+    beat(() => {
+      swap(pGate, pSite);
+      lit("Run the job");
+      tl.from(slotEls, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.28, stagger: 0.06 })
+        .set(TAB, { on: 1, y: 1050, yaw: -2.8 }, ">-0.1").to(TAB, { y: 421, yaw: 0, duration: 0.85, ease: "power3.out" }, "<")
+        .to(tabShadow, { opacity: 1, duration: 0.3 }, ">-0.3")
+        .to("#j-screen", { opacity: 1, duration: 0.15 })
+        .from(logEls, { opacity: 0, x: 18, duration: 0.25, stagger: 0.13 })
+        .from(offline, { opacity: 0, scale: 0.8, svgOrigin: "697 600", duration: 0.25, ease: "back.out(2)" });
+      moveTo(6);
+    });
+    beat(() => {
+      tl.to("#j-screen", { opacity: 0, duration: 0.12 }).to(TAB, { y: 1050, yaw: 2.8, duration: 0.5, ease: "power2.in" }, "<").to(TAB, { on: 0, duration: 0.01 });
+      swap(pSite, pPaid);
+
+      lit("Run the job", 0);
+      lit("Get paid");
+      tl.from(payEls, { opacity: 0, x: -20, duration: 0.3, stagger: 0.18 })
+        .from(chase, { opacity: 0, y: 14, duration: 0.25 }).from(sync, { opacity: 0, y: 14, duration: 0.25 })
+        .to(kpiBars, { scaleY: 1, duration: 0.4, stagger: 0.07, ease: "back.out(1.3)" }, "<-0.5")
+        .set(COIN, { on: 1, y: 120 }).to(COIN, { y: 281, duration: 0.6, ease: "bounce.out" });
+      moveTo(7);
+    });
+    beat(() => {
+      tl.to(COIN, { on: 0, duration: 0.15 });
+      swap(pPaid, pAi);
+
+      lit("Get paid", 0);
+      tl.from(q, { opacity: 0, x: -18, duration: 0.3 }).from(a, { opacity: 0, x: 18, duration: 0.3 }).to(CHIP, { on: 1, duration: 0.3, ease: "back.out(2)" }, "<")
+        .to(allMenu.map((m) => m.hi), { opacity: 1, duration: 0.14, stagger: 0.03 }) // it reaches every part of the system
+        .from(big, { opacity: 0, y: 22, duration: 0.35, ease: "back.out(1.6)" }, "<0.2");
+    }, 1.6);
+  });
+
+  // ---------------------------------------------------------------- DISSPICABLE
+  const wave = $("#d-wave");
+  const bars = Array.from({ length: 9 }, (_, i) => svg("rect", { x: -40 + i * 9.5, y: -40, width: 6, height: 80, rx: 3 }, wave));
+  gsap.set(bars, { transformOrigin: "50% 50%", scaleY: 0.2 });
+  const crowd = $("#d-crowd");
+  const VOTES = [["Cheer", "#ffc93c"], ["Laugh", "#ff4d8d"], ["Boo", "#8fd3ff"]];
+  const PH = [[80, 3], [170, 0], [260, 1], [350, 0], [440, 2], [530, 0], [620, 1], [710, 0], [800, 3]];
+  const phones = PH.map(([x, v], i) => {
+    const g = svg("g", {}, crowd), c = VOTES[v % 3];
+    svg("rect", { x: -40, y: -66, width: 80, height: 142, rx: 12, fill: "#0d0a1c" }, g);
+    svg("rect", { x: -33, y: -56, width: 66, height: 116, rx: 5, fill: c[1] }, g);
+    const t = svg("text", { x: 0, y: 8, "text-anchor": "middle", "font-size": 16, "font-weight": 700, fill: "#1b0a33" }, g); t.textContent = c[0];
+    gsap.set(g, { x, y: 640 + (i % 2) * 18, rotation: (i - 4) * 2.2, transformOrigin: "50% 100%" });
+    return g;
+  });
+
+  window.STORY.scenes({ svg, $, $$, G3, project, gsap }, "stan"); // second on the page, so its pin is made second
+
+  // the mug starts small inside the phone's viewfinder
+  gsap.set("#d-mug", { svgOrigin: "400 330", x: 52, y: 22, scale: 0.46 });
+  gsap.set("#d-shadow", { svgOrigin: "400 330" });
+  const dissSec = $("#p-diss");
+  G3.light(dissSec, { sky: "#ffe9c0", ground: "#6a2fc0", fill: 1.5, key: "#ffdf9e", keyI: 2.1, rim: "#ff7ab8", rimI: 1.8 });
+  const MUG = G3.add(dissSec, "mug", { size: 200, pitch: 0.27, yaw: -0.7, sync(m) { // the face layer steers the mug, so they can never drift apart
+    const x = gsap.getProperty("#d-mug", "x"), y = gsap.getProperty("#d-mug", "y"), k = gsap.getProperty("#d-mug", "scaleX"), r = gsap.getProperty("#d-mug", "rotation");
+    m.x = 400 + x; m.y = 327 + y; m.size = 430 * k; m.roll = -r * Math.PI / 180;
+    gsap.set("#d-shadow", { x, y, scale: k });
+  } });
+  const TROPHY = G3.add(dissSec, "trophy", { x: 742, y: 440, size: 210, pitch: 0.1, spin: 0.75, on: 0,
+    shadow: { floor: 545, w: 190, h: 30, rest: 105, a: 0.6, reach: 400, c: "#12062a" } });
+  gsap.set("#d-eye-l, #d-eye-r", { transformOrigin: "50% 50%" });
+  gsap.set("#d-mouth", { transformOrigin: "50% 50%", scaleY: 0.2 });
+  const talk = (tl, n, dur) => { for (let i = 0; i < n; i++) tl.to("#d-mouth", { scaleY: i % 2 ? 0.25 : 1.15, duration: dur / n, ease: "sine.inOut" }, i ? ">" : "<"); };
+
+  project("#p-diss", [
+    ["Snap any object", "Point your phone at anything: a mug, a trainer, a banana. Gemma 4 works out what it's looking at."],
+    ["It wakes up", "The object gets a face, a personality and its own designed voice, made on the spot."],
+    ["It roasts you", "It raps a roast at you in that voice, written live about what you are holding."],
+    ["You rap back", "Your phone becomes the mic. It transcribes your bars as you say them and fires back."],
+    ["The crowd decides", "The room joins by QR and votes on their phones. Score 60 or more and you beat the object."],
+  ], (beat, tl) => {
+    beat(() => {
+      tl.to(MUG, { yaw: 0.6, duration: 1.1, ease: "none" }, 0); // turns slowly in the viewfinder
+      tl.to("#d-shutter", { scale: 0.86, svgOrigin: "450 522", duration: 0.12 }, 0.35).to("#d-shutter", { scale: 1, svgOrigin: "450 522", duration: 0.12 })
+        .to("#d-flash", { opacity: 0.95, duration: 0.08 }, "<-0.1").to("#d-flash", { opacity: 0, duration: 0.4 });
+    }, 1);
+    beat(() => {
+      tl.to("#d-phone", { y: 760, rotation: -10, svgOrigin: "450 360", duration: 0.6, ease: "power3.in" })
+        .to("#d-phone", { opacity: 0, duration: 0.05 })
+        .to("#d-stage", { opacity: 1, duration: 0.5 }, "-=0.45")
+        .to("#d-mug", { x: 30, y: 110, scale: 1.08, duration: 0.8, ease: "back.out(1.4)" }, "<")
+        .to(MUG, { yaw: Math.PI * 2, duration: 1.15, ease: "power2.inOut" }, "<") // a full spin as it grows, landing face-on
+        .to("#d-face", { opacity: 1, duration: 0.1 }, ">-0.1")
+        .from("#d-eye-l", { scale: 0, duration: 0.4, ease: "back.out(3)" }, "<")
+        .from("#d-eye-r", { scale: 0, duration: 0.4, ease: "back.out(3)" }, "<0.12");
+    });
+    beat(() => {
+      tl.to("#d-bubble", { opacity: 1, duration: 0.25 }).from("#d-bubble", { scale: 0.5, svgOrigin: "490 200", duration: 0.45, ease: "back.out(2)" }, "<");
+      talk(tl, 8, 1);
+      tl.to("#d-mouth", { scaleY: 0.2, duration: 0.15 });
+    });
+    beat(() => {
+      tl.to("#d-bubble", { opacity: 0, duration: 0.25 })
+        .to("#d-mug", { x: -50, y: 40, scale: 0.9, duration: 0.5 }, "<")
+        .to("#d-mic", { opacity: 1, duration: 0.2 }, "<0.2")
+        .to("#d-reply", { opacity: 1, duration: 0.25 }).from("#d-reply", { y: 24, duration: 0.4, ease: "back.out(2)" }, "<")
+        .to(bars, { scaleY: (i) => 0.3 + (i * 7 % 5) * 0.17, duration: 0.25, stagger: 0.03, ease: "power1.inOut" }, "<")
+        .to(bars, { scaleY: (i) => 0.25 + ((i + 3) * 5 % 7) * 0.12, duration: 0.3, stagger: 0.02, ease: "power1.inOut" })
+        .to(bars, { scaleY: (i) => 0.3 + ((i + 1) * 3 % 5) * 0.17, duration: 0.3, stagger: 0.02, ease: "power1.inOut" });
+    });
+    beat(() => {
+      const n = { v: 0 }, out = $("#d-score-n");
+      tl.to("#d-reply", { opacity: 0, duration: 0.25 }).to("#d-mic", { opacity: 0, x: 900, duration: 0.3 }, "<")
+        .to("#d-mug", { x: -40, y: -6, scale: 0.86, duration: 0.5 }, "<")
+        .to("#d-crowd", { opacity: 1, duration: 0.15 }, "<")
+        .from(phones, { y: 800, duration: 0.5, stagger: 0.05, ease: "back.out(1.4)" }, "<")
+        .to("#d-score", { opacity: 1, duration: 0.2 }).from("#d-score", { scale: 0.4, svgOrigin: "716 136", duration: 0.4, ease: "back.out(2)" }, "<")
+        .to(n, { v: 72, duration: 0.9, ease: "power1.out", onUpdate: () => (out.textContent = Math.round(n.v)) }, "<")
+        .to("#d-win", { opacity: 1, duration: 0.2 }).from("#d-win", { scale: 0.6, svgOrigin: "234 77", duration: 0.35, ease: "back.out(3)" }, "<")
+        .set(TROPHY, { on: 1, y: 140 }, "<").to(TROPHY, { y: 440, duration: 0.7, ease: "bounce.out" }, "<")
+        // the mug loses: angry brows tip up into worry, mouth shrinks, and it sinks a little
+        .to("#d-brow-l", { rotation: -24, svgOrigin: "312 255", duration: 0.3 }, "<")
+        .to("#d-brow-r", { rotation: 24, svgOrigin: "442 244", duration: 0.3 }, "<")
+        .to("#d-mouth", { scaleX: 0.45, scaleY: 0.55, duration: 0.3 }, "<")
+        .to(".pup", { y: 14, duration: 0.3 }, "<")
+        .to("#d-mug", { y: 16, rotation: -3, duration: 0.4 }, "<");
+    }, 1.6);
+  });
+
+  window.STORY.scenes({ svg, $, $$, G3, project, gsap });
+
+  const railBtns = $$("#rail button");
+  // the pin spacer spans a project's whole scroll, so landing anywhere inside it still counts
+  const spacer = (id) => { const el = $(id); return el.closest(".pin-spacer") || el; };
+  ALL.forEach(([, , id], i) => ScrollTrigger.create({ trigger: spacer(id), start: "top center", end: "bottom center", onToggle: (st) => railBtns[i].classList.toggle("on", st.isActive) }));
+  ScrollTrigger.create({ trigger: spacer(ALL[0][2]), start: "top center", endTrigger: "#contact", end: "top center", onToggle: (st) => document.body.toggleAttribute("data-working", st.isActive) });
+
+  // each scene is in place before the pin starts, so you never land on an empty stage
+  if (!reduce) for (const sv of $$(".project .rig")) {
+    gsap.from(sv, { y: 60, opacity: 0, rotationY: -26, rotationX: 12, duration: 1.1, ease: "power3.out", scrollTrigger: { trigger: sv.closest(".project"), start: "top 75%" } });
+    if (matchMedia("(hover: hover)").matches) { // desktop only: moves one layer, so it costs almost nothing
+      const ry = gsap.quickTo(sv, "rotationY", { duration: 0.7, ease: "power3.out" }), rx = gsap.quickTo(sv, "rotationX", { duration: 0.7, ease: "power3.out" });
+      sv.closest(".project").addEventListener("pointermove", (e) => { ry((e.clientX / innerWidth - 0.5) * 9); rx((0.5 - e.clientY / innerHeight) * 7); });
+    }
+  }
+
+  // idle life while it's on screen: only the pupils, and only when visible
+  const jiggle = gsap.to(".pup", { x: 4, y: -3, duration: 0.5, repeat: -1, yoyo: true, ease: "sine.inOut", stagger: 0.08, paused: true });
+  if (!reduce) ScrollTrigger.create({ trigger: "#p-diss", start: "top bottom", end: "bottom top", onToggle: (s) => (s.isActive ? jiggle.play() : jiggle.pause()) });
+
+})();
+</script>
 </body>
 </html>
